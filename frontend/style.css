@@ -1,0 +1,463 @@
+/* ==========================================================
+   Design Tokens
+   ========================================================== */
+:root {
+    --color-bg-light: #DAD7CD;
+    --color-accent-light: #A3B18A;
+    --color-accent-primary: #588157;
+    --color-accent-dark: #3A5A40;
+    --color-bg-dark: #344E41;
+
+    /* Extended palette */
+    --color-nav-bg: #2B3D33;
+    --color-nav-border: rgba(88, 129, 87, 0.3);
+    --color-tab-hover: rgba(163, 177, 138, 0.15);
+    --color-tab-active-bg: var(--color-accent-primary);
+    --color-tab-active-text: #FFFFFF;
+    --color-tab-inactive-text: rgba(218, 215, 205, 0.7);
+
+    --nav-height: 56px;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --transition-fast: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    --shadow-nav: 0 2px 12px rgba(0, 0, 0, 0.25);
+    --shadow-panel: -3px 0 16px rgba(0, 0, 0, 0.2);
+    --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 0 1px var(--color-card-border);
+    --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.1), 0 0 0 1px var(--color-accent-primary);
+}
+
+/* ==========================================================
+   Reset & Base
+   ========================================================== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body, html {
+    height: 100%;
+    width: 100%;
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--color-bg-light);
+    color: var(--color-bg-dark);
+    overflow: hidden;
+}
+
+/* ==========================================================
+   Top Navigation Bar
+   ========================================================== */
+#top-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--nav-height);
+    padding: 0 24px;
+    background: var(--color-nav-bg);
+    border-bottom: 1px solid var(--color-nav-border);
+    box-shadow: var(--shadow-nav);
+    z-index: 100;
+    position: relative;
+}
+
+#nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    min-width: 180px;
+    text-decoration: none;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+}
+
+#nav-brand:hover {
+    background: var(--color-tab-hover);
+}
+
+.brand-icon {
+    font-size: 1.6em;
+    line-height: 1;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+}
+
+.brand-text {
+    font-weight: 700;
+    font-size: 1.15em;
+    letter-spacing: -0.3px;
+    color: var(--color-bg-light);
+    user-select: none;
+}
+
+#nav-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.15);
+    padding: 4px;
+    border-radius: var(--radius-md);
+}
+
+.nav-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-tab-inactive-text);
+    font-family: inherit;
+    font-size: 0.875em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+    user-select: none;
+    white-space: nowrap;
+}
+
+.nav-tab:hover {
+    background: var(--color-tab-hover);
+    color: var(--color-bg-light);
+}
+
+.nav-tab:active {
+    transform: scale(0.97);
+}
+
+.nav-tab.active {
+    background: var(--color-tab-active-bg);
+    color: var(--color-tab-active-text);
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(88, 129, 87, 0.4);
+}
+
+.tab-icon {
+    font-size: 1.1em;
+    line-height: 1;
+}
+
+#nav-spacer {
+    flex-shrink: 0;
+    min-width: 180px;
+}
+
+/* ==========================================================
+   Tab Pages (Generic)
+   ========================================================== */
+.tab-page {
+    height: calc(100vh - var(--nav-height));
+    width: 100vw;
+    overflow: hidden;
+}
+
+/* Fade-in animation for tab switch */
+.tab-page.tab-enter {
+    animation: tabFadeIn var(--transition-smooth) forwards;
+}
+
+@keyframes tabFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==========================================================
+   Empty / Placeholder Pages (Purpose, Who am I)
+   ========================================================== */
+.empty-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 16px;
+    color: var(--color-bg-dark);
+    opacity: 0.6;
+}
+
+.empty-icon {
+    font-size: 4em;
+    line-height: 1;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.15));
+}
+
+.empty-page h1 {
+    font-size: 2em;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.empty-page p {
+    font-size: 1.1em;
+    font-weight: 400;
+    color: var(--color-accent-dark);
+}
+
+/* ==========================================================
+   Resources Page
+   ========================================================== */
+.resources-page {
+    height: 100%;
+    overflow-y: auto;
+    padding: 48px 40px 64px;
+    max-width: 680px;
+    margin: 0 auto;
+}
+
+.resources-page h1 {
+    font-size: 1.8em;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--color-bg-dark);
+    margin-bottom: 8px;
+}
+
+.resources-subtitle {
+    font-size: 0.95em;
+    color: var(--color-accent-dark);
+    opacity: 0.75;
+    margin-bottom: 32px;
+}
+
+.resources-list {
+    list-style: none;
+    padding: 0;
+}
+
+.resources-list li {
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(163, 177, 138, 0.3);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.resources-list li:last-child {
+    border-bottom: none;
+}
+
+.resource-name {
+    font-weight: 600;
+    color: var(--color-bg-dark);
+    font-size: 0.95em;
+}
+
+.resource-desc {
+    font-size: 0.88em;
+    color: #6b7c6d;
+}
+
+.resources-list a {
+    display: block;
+    width: 100%;
+    font-size: 0.8em;
+    font-weight: 500;
+    color: var(--color-accent-primary);
+    text-decoration: none;
+    margin-top: 4px;
+    transition: color var(--transition-fast);
+}
+
+.resources-list a:hover {
+    color: var(--color-accent-dark);
+}
+
+/* Resources scrollbar */
+.resources-page::-webkit-scrollbar {
+    width: 6px;
+}
+.resources-page::-webkit-scrollbar-track {
+    background: transparent;
+}
+.resources-page::-webkit-scrollbar-thumb {
+    background: var(--color-accent-light);
+    border-radius: 99px;
+}
+.resources-page::-webkit-scrollbar-thumb:hover {
+    background: var(--color-accent-primary);
+}
+
+/* ==========================================================
+   Home / Map Page
+   ========================================================== */
+#page-home {
+    display: flex;
+}
+
+#map-container {
+    flex: 1;
+    position: relative;
+}
+
+#map {
+    height: 100%;
+    width: 100%;
+    z-index: 1;
+}
+
+/* ==========================================================
+   Assistant Panel
+   ========================================================== */
+#assistant-panel {
+    width: 350px;
+    background-color: var(--color-bg-dark);
+    color: var(--color-bg-light);
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    box-shadow: var(--shadow-panel);
+    z-index: 2;
+}
+
+.instructions {
+    background-color: var(--color-accent-dark);
+    padding: 20px;
+    border-radius: var(--radius-md);
+    margin-bottom: 20px;
+    border: 1px solid var(--color-accent-primary);
+}
+
+.instructions p {
+    margin-bottom: 10px;
+    font-size: 1.05em;
+}
+
+.instructions ul {
+    list-style-type: disc;
+    padding-left: 20px;
+    line-height: 1.6;
+    font-size: 0.92em;
+}
+
+.assistant-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--color-accent-light);
+    border-radius: var(--radius-md);
+    background-color: rgba(163, 177, 138, 0.1);
+    opacity: 0.7;
+    transition: opacity var(--transition-fast);
+}
+
+.assistant-placeholder:hover {
+    opacity: 0.9;
+}
+
+.bot-icon {
+    font-size: 3em;
+    margin-bottom: 10px;
+}
+
+/* ==========================================================
+   Leaflet Popup Overrides
+   ========================================================== */
+.leaflet-popup-content-wrapper {
+    background-color: var(--color-bg-light);
+    color: var(--color-bg-dark);
+    border-radius: var(--radius-md);
+    border: 2px solid var(--color-accent-primary);
+    font-family: 'Inter', sans-serif;
+}
+
+.leaflet-popup-tip {
+    background-color: var(--color-bg-light);
+}
+
+.popup-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.popup-content img {
+    width: 100%;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.popup-content strong {
+    color: var(--color-accent-dark);
+}
+
+/* ==========================================================
+   Scrollbar Styling (Resources page)
+   ========================================================== */
+.resources-page::-webkit-scrollbar {
+    width: 8px;
+}
+
+.resources-page::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.resources-page::-webkit-scrollbar-thumb {
+    background: var(--color-accent-light);
+    border-radius: 99px;
+}
+
+.resources-page::-webkit-scrollbar-thumb:hover {
+    background: var(--color-accent-primary);
+}
+
+/* ==========================================================
+   Responsive
+   ========================================================== */
+@media (max-width: 768px) {
+    #nav-brand {
+        min-width: auto;
+    }
+    #nav-spacer {
+        display: none;
+    }
+    .nav-tab {
+        padding: 8px 12px;
+        font-size: 0.8em;
+    }
+    .tab-icon {
+        display: none;
+    }
+    #assistant-panel {
+        width: 260px;
+    }
+    .resources-page {
+        padding: 32px 20px 48px;
+    }
+    .resources-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 520px) {
+    #top-nav {
+        padding: 0 12px;
+        gap: 8px;
+    }
+    .brand-text {
+        display: none;
+    }
+    #nav-tabs {
+        gap: 2px;
+        padding: 3px;
+    }
+    .nav-tab {
+        padding: 6px 10px;
+        font-size: 0.78em;
+    }
+    #assistant-panel {
+        display: none;
+    }
+}

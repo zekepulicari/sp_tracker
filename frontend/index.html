@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Species Tracker — Orcinus orca Sightings</title>
+    <meta name="description" content="Track Orcinus orca (Killer Whale) sightings worldwide using real-time iNaturalist data with interactive maps and density grids.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <nav id="top-nav">
+        <a href="#" id="nav-brand" data-tab="home" title="Back to map">
+            <span class="brand-icon">🐋</span>
+            <span class="brand-text">Species Tracker</span>
+        </a>
+        <div id="nav-tabs">
+            <button class="nav-tab" data-tab="purpose" id="tab-purpose">
+                <span class="tab-icon">🎯</span>
+                Purpose
+            </button>
+            <button class="nav-tab" data-tab="resources" id="tab-resources">
+                <span class="tab-icon">📚</span>
+                Resources
+            </button>
+            <button class="nav-tab" data-tab="whoami" id="tab-whoami">
+                <span class="tab-icon">👤</span>
+                Who am I
+            </button>
+        </div>
+        <div id="nav-spacer"></div>
+    </nav>
+
+    <!-- Home View: The Map (default) -->
+    <section id="page-home" class="tab-page" style="display: flex;">
+        <main id="map-container">
+            <div id="map"></div>
+        </main>
+        <aside id="assistant-panel">
+            <div class="instructions">
+                <p><strong>Instructions:</strong></p>
+                <ul>
+                    <li>Drag the map to explore regions.</li>
+                    <li>Zoom in or out to see observation density grids.</li>
+                    <li>Zoom in closer to reveal individual sightings of Orcinus orca.</li>
+                    <li>Click on a specific marker for more details.</li>
+                </ul>
+            </div>
+            
+            <div class="assistant-placeholder">
+                <div class="bot-icon">🤖</div>
+                <p>AI Assistant coming soon...</p>
+            </div>
+        </aside>
+    </section>
+
+    <!-- Tab Content: Purpose -->
+    <section id="page-purpose" class="tab-page" style="display: none;">
+        <div class="empty-page">
+            <div class="empty-icon">🎯</div>
+            <h1>Purpose</h1>
+            <p>Coming soon...</p>
+        </div>
+    </section>
+
+    <!-- Tab Content: Resources -->
+    <section id="page-resources" class="tab-page" style="display: none;">
+        <div class="resources-page">
+            <h1>Resources</h1>
+            <p class="resources-subtitle">Technologies, APIs, and data sources powering Species Tracker.</p>
+
+            <ul class="resources-list">
+                <li>
+                    <span class="resource-name">iNaturalist API</span>
+                    <span class="resource-desc">— Real-time biodiversity observations and density grid tiles</span>
+                    <a href="https://api.inaturalist.org/v1/docs/" target="_blank" rel="noopener noreferrer">api.inaturalist.org ↗</a>
+                </li>
+                <li>
+                    <span class="resource-name">Leaflet.js</span>
+                    <span class="resource-desc">— Interactive map rendering, markers, and popups</span>
+                    <a href="https://leafletjs.com/" target="_blank" rel="noopener noreferrer">leafletjs.com ↗</a>
+                </li>
+                <li>
+                    <span class="resource-name">CARTO Basemaps</span>
+                    <span class="resource-desc">— Light basemap tiles for the default map layer</span>
+                    <a href="https://carto.com/basemaps/" target="_blank" rel="noopener noreferrer">carto.com ↗</a>
+                </li>
+                <li>
+                    <span class="resource-name">Esri World Imagery</span>
+                    <span class="resource-desc">— Satellite imagery for the alternate map layer</span>
+                    <a href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9" target="_blank" rel="noopener noreferrer">arcgis.com ↗</a>
+                </li>
+                <li>
+                    <span class="resource-name">FastAPI</span>
+                    <span class="resource-desc">— Python backend framework serving the API proxy</span>
+                    <a href="https://fastapi.tiangolo.com/" target="_blank" rel="noopener noreferrer">fastapi.tiangolo.com ↗</a>
+                </li>
+                <li>
+                    <span class="resource-name">HTTPX</span>
+                    <span class="resource-desc">— Async HTTP client for server-side API requests</span>
+                    <a href="https://www.python-httpx.org/" target="_blank" rel="noopener noreferrer">python-httpx.org ↗</a>
+                </li>
+                <li>
+                    <span class="resource-name">cachetools</span>
+                    <span class="resource-desc">— In-memory TTL caching for API responses</span>
+                    <a href="https://pypi.org/project/cachetools/" target="_blank" rel="noopener noreferrer">pypi.org ↗</a>
+                </li>
+                <li>
+                    <span class="resource-name">Inter (Google Fonts)</span>
+                    <span class="resource-desc">— Modern sans-serif typeface used across the UI</span>
+                    <a href="https://fonts.google.com/specimen/Inter" target="_blank" rel="noopener noreferrer">fonts.google.com ↗</a>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Tab Content: Who am I -->
+    <section id="page-whoami" class="tab-page" style="display: none;">
+        <div class="empty-page">
+            <div class="empty-icon">👤</div>
+            <h1>Who am I</h1>
+            <p>Coming soon...</p>
+        </div>
+    </section>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="app.js"></script>
+</body>
+</html>
