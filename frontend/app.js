@@ -110,11 +110,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Add iNaturalist Grid layer for Orcinus orca
         const gridLayer = L.tileLayer('https://api.inaturalist.org/v1/grid/{z}/{x}/{y}.png?taxon_id=41521&color=%23dc2f02', {
             attribution: '&copy; <a href="https://www.inaturalist.org">iNaturalist</a>',
-            opacity: 0.8
+            opacity: 0.8,
+            zIndex: 10
         });
 
         // Layer Group for individual markers
         const markersLayer = L.layerGroup();
+        // Expose for access by tools.js (point-in-polygon on visible observations)
+        window._spMarkersLayer = markersLayer;
 
         let isLoading = false;
 
