@@ -39,6 +39,16 @@
     <section id="page-home" class="tab-page" style="display: flex;">
         <main id="map-container">
             <div id="map"></div>
+
+            <!-- Vertical Measurement Toolbar -->
+            <div id="map-toolbar">
+                <button id="tool-ruler" class="map-tool-btn" title="Measure distance (2 points)" aria-label="Ruler tool">
+                    <img src="/resources/images/ruler_icon.png" alt="Ruler" width="22" height="22">
+                </button>
+                <button id="tool-area"  class="map-tool-btn" title="Measure area (polygon)"      aria-label="Area tool">
+                    <img src="/resources/images/area_selector_icon.png" alt="Select area" width="22" height="22">
+                </button>
+            </div>
         </main>
         <aside id="assistant-panel">
             <div class="instructions">
@@ -48,8 +58,13 @@
                     <li>Zoom in or out to see observation density grids.</li>
                     <li>Zoom in closer to reveal individual sightings of Orcinus orca.</li>
                     <li>Click on a specific marker for more details.</li>
+                    <li>Use <img src="/resources/images/ruler_icon.png" alt="ruler" width="14" height="14" style="vertical-align:middle;"> to measure distance between two points.</li>
+                    <li>Use <img src="/resources/images/area_selector_icon.png" alt="area selector" width="14" height="14" style="vertical-align:middle;"> to select an area and count observations inside.</li>
                 </ul>
             </div>
+
+            <!-- Measurement Results (shown by tools.js) -->
+            <div id="measurement-results"></div>
             
             <div class="assistant-placeholder">
                 <div class="bot-icon">🤖</div>
@@ -114,6 +129,11 @@
                     <span class="resource-desc">— Modern sans-serif typeface used across the UI</span>
                     <a href="https://fonts.google.com/specimen/Inter" target="_blank" rel="noopener noreferrer">fonts.google.com ↗</a>
                 </li>
+                <li>
+                    <span class="resource-name">Turf.js</span>
+                    <span class="resource-desc">— Client-side geodesic distance, polygon area, and point-in-polygon calculations for measurement tools</span>
+                    <a href="https://turfjs.org/" target="_blank" rel="noopener noreferrer">turfjs.org ↗</a>
+                </li>
             </ul>
         </div>
     </section>
@@ -128,6 +148,8 @@
     </section>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://unpkg.com/@turf/turf@7/turf.min.js"></script>
     <script src="app.js"></script>
+    <script src="tools.js"></script>
 </body>
 </html>

@@ -461,3 +461,193 @@ body, html {
         display: none;
     }
 }
+
+/* ==========================================================
+   Map Toolbar (Measurement Tools)
+   ========================================================== */
+#map-toolbar {
+    position: absolute;
+    top: 80px;
+    left: 12px;
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.map-tool-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: rgba(43, 61, 51, 0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--color-bg-light);
+    font-size: 1.15em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 0 0 1px rgba(88, 129, 87, 0.25);
+    transition: background var(--transition-fast),
+                box-shadow var(--transition-fast),
+                transform var(--transition-fast);
+    user-select: none;
+    line-height: 1;
+}
+
+.map-tool-btn:hover {
+    background: rgba(58, 90, 64, 0.97);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4), 0 0 0 1.5px var(--color-accent-primary);
+    transform: translateY(-1px);
+}
+
+.map-tool-btn:active {
+    transform: scale(0.95);
+}
+
+.map-tool-btn.tool-active {
+    background: var(--color-accent-primary);
+    box-shadow: 0 4px 16px rgba(88, 129, 87, 0.55), 0 0 0 2px rgba(163, 177, 138, 0.5);
+    color: #fff;
+}
+
+/* Crosshair cursor when a tool is active */
+#map.tool-cursor-active {
+    cursor: crosshair !important;
+}
+
+#map.tool-cursor-active .leaflet-container {
+    cursor: crosshair !important;
+}
+
+/* ==========================================================
+   Measurement Results Panel
+   ========================================================== */
+#measurement-results {
+    margin-top: 12px;
+    display: none; /* shown by JS when a measurement is complete */
+    flex-direction: column;
+    gap: 10px;
+    animation: resultsFadeIn 280ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes resultsFadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.measurement-card {
+    background: var(--color-accent-dark);
+    border: 1px solid var(--color-accent-primary);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+}
+
+.measurement-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.measurement-card-icon {
+    font-size: 1.3em;
+    line-height: 1;
+}
+
+.measurement-card-title {
+    font-size: 0.78em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-accent-light);
+    opacity: 0.85;
+}
+
+.measurement-value {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: var(--color-bg-light);
+    letter-spacing: -0.5px;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+.measurement-sub {
+    font-size: 0.78em;
+    color: var(--color-accent-light);
+    opacity: 0.75;
+}
+
+/* Area stats: species list */
+.species-breakdown {
+    margin-top: 10px;
+    border-top: 1px solid rgba(163, 177, 138, 0.25);
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.species-breakdown::-webkit-scrollbar {
+    width: 4px;
+}
+.species-breakdown::-webkit-scrollbar-track {
+    background: transparent;
+}
+.species-breakdown::-webkit-scrollbar-thumb {
+    background: var(--color-accent-light);
+    border-radius: 99px;
+}
+
+.species-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82em;
+    color: var(--color-bg-light);
+    gap: 8px;
+}
+
+.species-name {
+    font-style: italic;
+    opacity: 0.88;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.species-count-badge {
+    background: var(--color-accent-primary);
+    color: #fff;
+    border-radius: 99px;
+    padding: 1px 8px;
+    font-size: 0.78em;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+/* Drawing hint shown while tool is active */
+.drawing-hint {
+    font-size: 0.8em;
+    color: var(--color-accent-light);
+    opacity: 0.8;
+    text-align: center;
+    padding: 8px 4px;
+    border: 1px dashed rgba(163, 177, 138, 0.35);
+    border-radius: var(--radius-sm);
+    line-height: 1.5;
+}
+
+/* Toolbar button icon images — invert dark PNGs to white */
+.map-tool-btn img {
+    pointer-events: none;
+    filter: invert(1) brightness(2);
+    display: block;
+}
+
