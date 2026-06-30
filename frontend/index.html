@@ -51,25 +51,110 @@
             </div>
         </main>
         <aside id="assistant-panel">
-            <div class="instructions">
-                <p><strong>Instructions:</strong></p>
-                <ul>
-                    <li>Drag the map to explore regions.</li>
-                    <li>Zoom in or out to see observation density grids.</li>
-                    <li>Zoom in closer to reveal individual sightings of Orcinus orca.</li>
-                    <li>Click on a specific marker for more details.</li>
-                    <li>Use <img src="/resources/images/ruler_icon.png" alt="ruler" width="14" height="14" style="vertical-align:middle;"> to measure distance between two points.</li>
-                    <li>Use <img src="/resources/images/area_selector_icon.png" alt="area selector" width="14" height="14" style="vertical-align:middle;"> to select an area and count observations inside.</li>
-                </ul>
+            <!-- Ecological Analysis Header -->
+            <div class="analysis-header">
+                <div class="analysis-persona-badge">
+                    <span class="persona-icon">🔬</span>
+                    <div class="persona-info">
+                        <span class="persona-title">Ecological Analyst</span>
+                        <span class="persona-subtitle">SDM · GLM · CCA</span>
+                    </div>
+                    <span class="persona-status online" id="persona-status"></span>
+                </div>
+            </div>
+
+            <div class="analysis-capabilities">
+                <div class="capability-chip" title="Species Distribution Modeling">
+                    <span class="chip-icon">📊</span> SDM
+                </div>
+                <div class="capability-chip" title="Pearson & Spearman Correlations">
+                    <span class="chip-icon">📈</span> Correlation
+                </div>
+                <div class="capability-chip" title="Generalized Linear Models">
+                    <span class="chip-icon">🧮</span> GLM
+                </div>
+                <div class="capability-chip" title="Canonical Correspondence Analysis">
+                    <span class="chip-icon">🌊</span> CCA
+                </div>
             </div>
 
             <!-- Measurement Results (shown by tools.js) -->
             <div id="measurement-results"></div>
-            
-            <div class="assistant-placeholder">
-                <div class="bot-icon">🤖</div>
-                <p>AI Assistant coming soon...</p>
+
+            <!-- Analysis Module Controls -->
+            <div class="analysis-module">
+                <div class="module-section">
+                    <label class="module-label" for="analysis-species">Target Species</label>
+                    <input type="text" id="analysis-species" class="module-input"
+                           value="Orcinus orca" placeholder="e.g. Orcinus orca" />
+                </div>
+
+                <div class="module-section">
+                    <label class="module-label" for="analysis-limit">Sample Size: <span id="limit-value">500</span></label>
+                    <input type="range" id="analysis-limit" class="module-range"
+                           min="100" max="2000" step="100" value="500" />
+                    <div class="range-labels">
+                        <span>100</span>
+                        <span>2000</span>
+                    </div>
+                </div>
+
+                <div class="module-section">
+                    <label class="module-label" for="analysis-method">Model</label>
+                    <select id="analysis-method" class="module-select">
+                        <option value="glm">GLM (Logistic Regression)</option>
+                        <option value="rf">Random Forest</option>
+                        <option value="cca">CCA (Multivariate)</option>
+                    </select>
+                </div>
+
+                <div class="module-section" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(88,129,87,0.3);">
+                    <label class="module-label" style="color: var(--color-accent-primary);">Location-Specific Prediction</label>
+                    <div style="font-size: 0.8em; opacity: 0.8; margin-bottom: 8px;">
+                        Optional: Select a date and location to calculate predictive encounter probabilities based on weather forecasts.
+                    </div>
+                    
+                    <label class="module-label" for="prediction-date">Target Date</label>
+                    <input type="date" id="prediction-date" class="module-input" style="margin-bottom: 10px;" />
+                    
+                    <button id="btn-pick-location" class="btn-analysis" style="background-color: var(--color-nav-bg); margin-bottom: 5px; opacity: 0.9;">
+                        <span class="btn-icon">📍</span> Pick Location on Map
+                    </button>
+                    <div id="prediction-location-display" style="font-size: 0.8em; color: var(--color-accent-primary); font-weight: 600; margin-bottom: 10px; text-align: center; height: 16px;">
+                        No location selected (Global Mode)
+                    </div>
+                </div>
+
+                <button id="btn-run-analysis" class="btn-analysis">
+                    <span class="btn-icon">▶</span> Run Analysis
+                </button>
             </div>
+
+            <!-- Analysis Results Area -->
+            <div id="analysis-results"></div>
+
+            <!-- Persona Definition (hidden, machine-readable) -->
+            <script type="application/json" id="persona-definition">
+            {
+                "role": "Senior Ecological Data Scientist & Spatial Modeler",
+                "identity": "Expert in spatial statistics, Species Distribution Modeling (SDM), and API data wrangling for marine ecology.",
+                "goals": {
+                    "data_ingestion": {
+                        "species_occurrences": ["OBIS API"],
+                        "weather_environment": ["Open-Meteo Historical", "Open-Meteo Marine"]
+                    },
+                    "exploratory_correlation": "Pearson and Spearman rank correlations between species presence and environmental variables.",
+                    "probability_modeling_sdm": "GLM logistic regression and Random Forest for encounter probability.",
+                    "multivariate_analysis": "CCA to relate species composition to environmental gradients."
+                },
+                "constraints": {
+                    "multicollinearity": "VIF check before modeling.",
+                    "absence_data": "Pseudo-absence generation for valid SDM training.",
+                    "data_alignment": "Strict spatio-temporal alignment via Open-Meteo.",
+                    "sst_validation": "Cross-validate Open-Meteo SST against OBIS SST."
+                }
+            }
+            </script>
         </aside>
     </section>
 
@@ -93,6 +178,16 @@
                     <span class="resource-name">iNaturalist API</span>
                     <span class="resource-desc">— Real-time biodiversity observations and density grid tiles</span>
                     <a href="https://api.inaturalist.org/v1/docs/" target="_blank" rel="noopener noreferrer">api.inaturalist.org ↗</a>
+                </li>
+                <li>
+                    <span class="resource-name">OBIS API</span>
+                    <span class="resource-desc">— Ocean Biodiversity Information System: historical marine species occurrence data</span>
+                    <a href="https://api.obis.org/v3/" target="_blank" rel="noopener noreferrer">api.obis.org ↗</a>
+                </li>
+                <li>
+                    <span class="resource-name">Open-Meteo</span>
+                    <span class="resource-desc">— Historical weather, marine conditions (SST, waves, currents) — free, no API key</span>
+                    <a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener noreferrer">open-meteo.com ↗</a>
                 </li>
                 <li>
                     <span class="resource-name">Leaflet.js</span>
@@ -134,6 +229,11 @@
                     <span class="resource-desc">— Client-side geodesic distance, polygon area, and point-in-polygon calculations for measurement tools</span>
                     <a href="https://turfjs.org/" target="_blank" rel="noopener noreferrer">turfjs.org ↗</a>
                 </li>
+                <li>
+                    <span class="resource-name">SciPy / Statsmodels / Scikit-Learn</span>
+                    <span class="resource-desc">— Backend statistical analysis: correlations, GLM, Random Forest, VIF</span>
+                    <a href="https://scipy.org/" target="_blank" rel="noopener noreferrer">scipy.org ↗</a>
+                </li>
             </ul>
         </div>
     </section>
@@ -151,5 +251,6 @@
     <script src="https://unpkg.com/@turf/turf@7/turf.min.js"></script>
     <script src="app.js"></script>
     <script src="tools.js"></script>
+    <script src="analysis.js"></script>
 </body>
 </html>
