@@ -362,11 +362,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <table class="correlation-table" style="font-size: 0.85em;">
                         <tbody>
-                            <tr><td>Sea Surface Temp</td><td>${pred.conditions.sst !== null ? pred.conditions.sst.toFixed(1) + ' °C' : 'N/A'}</td></tr>
-                            <tr><td>Wind Speed</td><td>${pred.conditions.wind_speed !== null ? pred.conditions.wind_speed.toFixed(1) + ' km/h' : 'N/A'}</td></tr>
-                            <tr><td>Air Temp (2m)</td><td>${pred.conditions.air_temp !== null ? pred.conditions.air_temp.toFixed(1) + ' °C' : 'N/A'}</td></tr>
-                            <tr><td>Wave Height</td><td>${pred.conditions.wave_height !== null ? pred.conditions.wave_height.toFixed(1) + ' m' : 'N/A'}</td></tr>
-                            <tr><td>Ocean Current</td><td>${pred.conditions.ocean_current !== null ? pred.conditions.ocean_current.toFixed(2) + ' km/h' : 'N/A'}</td></tr>
+                            <tr><td>Sea Surface Temp</td><td>${pred.conditions_used.sst !== null && pred.conditions_used.sst !== undefined ? pred.conditions_used.sst.toFixed(1) + ' °C' : 'N/A'}</td></tr>
+                            <tr><td>Wind Speed</td><td>${pred.conditions_used.wind_speed !== null && pred.conditions_used.wind_speed !== undefined ? pred.conditions_used.wind_speed.toFixed(1) + ' km/h' : 'N/A'}</td></tr>
+                            <tr><td>Air Temp (2m)</td><td>${pred.conditions_used.air_temp !== null && pred.conditions_used.air_temp !== undefined ? pred.conditions_used.air_temp.toFixed(1) + ' °C' : 'N/A'}</td></tr>
+                            <tr><td>Wave Height</td><td>${pred.conditions_used.wave_height !== null && pred.conditions_used.wave_height !== undefined ? pred.conditions_used.wave_height.toFixed(1) + ' m' : 'N/A'}</td></tr>
+                            <tr><td>Ocean Current</td><td>${pred.conditions_used.ocean_current !== null && pred.conditions_used.ocean_current !== undefined ? pred.conditions_used.ocean_current.toFixed(2) + ' km/h' : 'N/A'}</td></tr>
                         </tbody>
                     </table>
                 </div>
