@@ -293,7 +293,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
             
             li.addEventListener('click', () => {
-                speciesInput.value = item.name;
+                const displayName = item.preferred_common_name 
+                    ? `${item.name} (${item.preferred_common_name})` 
+                    : item.name;
+                speciesInput.value = displayName;
                 window.currentTaxonId = item.id;
                 autocompleteList.classList.remove('active');
                 

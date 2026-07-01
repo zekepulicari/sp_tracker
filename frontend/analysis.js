@@ -102,10 +102,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // Run Button
     // =========================================================
     runBtn.addEventListener('click', async () => {
-        const species = speciesInput?.value?.trim() || 'Orcinus orca';
+        if (!predictionTarget) {
+            renderError("Please click on the map to select a target location before running the analysis.");
+            return;
+        }
+
+        const tDate = dateInput?.value || null;
+        if (!tDate) {
+            renderError("Please select a target date before running the analysis.");
+            return;
+        }
+
+        const rawSpecies = speciesInput?.value?.trim() || 'Orcinus orca';
+        // Extract scientific name if it has parentheses: "Megaptera (Humpback Whale)" -> "Megaptera"
+        const species = rawSpecies.split('(')[0].trim();
+        
         const limit   = parseInt(limitSlider?.value || '500', 10);
         const method  = methodSelect?.value || 'glm';
-        const tDate   = dateInput?.value || null;
 
         await runAnalysis(species, method, limit, predictionTarget, tDate);
     });
