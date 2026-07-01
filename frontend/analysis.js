@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 payload.target_lat = targetLoc.lat;
                 payload.target_lng = targetLoc.lng;
                 payload.target_date = targetDate;
-                payload.radius_km = 50.0;
+                payload.radius_km = 5.0; // Start with 5km and expand up to 50km
             }
 
             const resp = await fetch('/api/analysis/run', {
