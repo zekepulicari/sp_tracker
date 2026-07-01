@@ -65,6 +65,7 @@ The visual design uses the following color palette:
 **Icons**
 - Area selector: <a href="https://www.flaticon.com/free-icons/polygonal" title="polygonal icons">Polygonal icons created by Voysla - Flaticon</a>
 - Ruler: <a href="https://www.flaticon.com/free-icons/ruler" title="ruler icons">Ruler icons created by Freepik - Flaticon</a>
+- Animal Tracks Icon:<a href="https://www.flaticon.com/free-icons/dog" title="dog icons">Dog icons created by Made by Made - Flaticon</a>
 
 ## Weaknesses & Limitations (Predictive Model)
 
