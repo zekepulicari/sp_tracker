@@ -1,11 +1,14 @@
 import logging
 from datetime import datetime
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, List
 import httpx
 import pandas as pd
+import asyncio
+import math
 
 from analysis.data_ingestion import fetch_obis_occurrences, generate_pseudo_absences, fetch_historical_weather, fetch_marine_conditions
 from analysis.probability_model import fit_glm, fit_random_forest, fit_cca
+from analysis.interpretation import generate_interpretation
 
 logger = logging.getLogger(__name__)
 
@@ -229,12 +232,15 @@ async def run_prediction_pipeline(task_id: str, species: str, lat: float, lng: f
                 
         prob = 1.0 / (1.0 + np.exp(-logit))
         
-        analysis_tasks[task_id]["status"] = "complete"
-        analysis_tasks[task_id]["results"] = {
-            "prediction": {
-                "probability": prob,
+        update_progress("Generating AI Interpretation...")
+        results_data = {
+            "encounter_prediction": {
+                "probability_pct": prob * 100,
                 "mode": mode,
                 "target_date": target_date,
+                "target_lat": lat,
+                "target_lng": lng,
+                "radius_km_used": radius_km,
                 "conditions_used": env_conditions
             },
             "model": model_result,
@@ -244,6 +250,12 @@ async def run_prediction_pipeline(task_id: str, species: str, lat: float, lng: f
                 "absence_count": int((df["presence"] == 0).sum())
             }
         }
+        
+        interpretation_text = generate_interpretation(species, results_data)
+        results_data["interpretation"] = interpretation_text
+
+        analysis_tasks[task_id]["status"] = "complete"
+        analysis_tasks[task_id]["results"] = results_data
     except Exception as exc:
         logger.exception("Prediction failed for task %s", task_id)
         analysis_tasks[task_id]["status"] = "error"
