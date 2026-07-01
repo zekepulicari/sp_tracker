@@ -177,7 +177,7 @@ class AnalysisRequest(BaseModel):
     target_lat: Optional[float] = None
     target_lng: Optional[float] = None
     target_date: Optional[str] = None
-    radius_km: Optional[float] = 50.0
+    radius_km: Optional[float] = 5.0
 
 
 async def _run_analysis_pipeline(task_id: str, species: str, method: str, limit: int):

@@ -134,36 +134,39 @@ async def run_prediction_pipeline(task_id: str, species: str, lat: float, lng: f
 
         analysis_tasks[task_id]["status"] = "running"
         
-        # 1. Expand bbox based on radius_km
-        import math
-        lat_diff = radius_km / 111.0
-        lng_diff = radius_km / (111.0 * math.cos(math.radians(lat)))
+        # 1. Dynamic radius expansion to find at least 50 occurrences, capped at 50km
+        max_radius_km = 50.0
+        occurrences = []
         
-        bbox = {
-            "min_lat": lat - lat_diff,
-            "max_lat": lat + lat_diff,
-            "min_lng": lng - lng_diff,
-            "max_lng": lng + lng_diff
-        }
-        
-        update_progress(f"Fetching local historical occurrences ({radius_km}km radius)...")
-        occurrences = await fetch_obis_occurrences(species=species, limit=limit, bbox=bbox)
-        
-        if len(occurrences) < 20:
-            update_progress("Insufficient local data. Expanding radius...")
-            radius_km *= 2
+        while radius_km <= max_radius_km:
             lat_diff = radius_km / 111.0
             lng_diff = radius_km / (111.0 * math.cos(math.radians(lat)))
+            
             bbox = {
                 "min_lat": lat - lat_diff,
                 "max_lat": lat + lat_diff,
                 "min_lng": lng - lng_diff,
                 "max_lng": lng + lng_diff
             }
+            
+            update_progress(f"Fetching local historical occurrences ({radius_km}km radius)...")
             occurrences = await fetch_obis_occurrences(species=species, limit=limit, bbox=bbox)
             
+            if len(occurrences) >= 50:
+                break
+                
+            if radius_km >= max_radius_km:
+                break
+                
+            update_progress(f"Found {len(occurrences)} records. Expanding radius...")
+            radius_km += 5.0
+            
+            # Avoid exceeding the absolute max in the next iteration
+            if radius_km > max_radius_km:
+                radius_km = max_radius_km
+                
         if len(occurrences) < 10:
-            raise ValueError(f"Not enough historical occurrences found near this location for {species}.")
+            raise ValueError(f"Only {len(occurrences)} historical occurrences found near this location for {species} even at {max_radius_km}km. Model requires more data.")
 
         update_progress("Generating local pseudo-absences...")
         dataset_points = []
