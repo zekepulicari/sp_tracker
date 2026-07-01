@@ -223,16 +223,17 @@ async def run_prediction_pipeline(task_id: str, species: str, lat: float, lng: f
             if env_conditions.get(col) is None:
                 if col in df.columns:
                     mean_val = df[col].mean()
-                    env_conditions[col] = 0.0 if np.isnan(mean_val) else float(mean_val)
+                    env_conditions[col] = None if np.isnan(mean_val) else float(mean_val)
                 else:
-                    env_conditions[col] = 0.0
+                    env_conditions[col] = None
             elif isinstance(env_conditions[col], float) and np.isnan(env_conditions[col]):
-                env_conditions[col] = 0.0
+                env_conditions[col] = None
+                
         coeffs = model_result.get("coefficients", {})
         intercept = coeffs.get("intercept", 0.0)
         logit = intercept
         for var, val in env_conditions.items():
-            if var in coeffs:
+            if var in coeffs and val is not None:
                 logit += coeffs[var] * val
                 
         prob = 1.0 / (1.0 + np.exp(-logit))
