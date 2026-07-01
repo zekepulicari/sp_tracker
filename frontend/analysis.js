@@ -239,6 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { key: 'Fitting',            label: 'Fitting model',                    icon: '🧮' },
         { key: 'Training',           label: 'Training Random Forest',           icon: '🌳' },
         { key: 'Running',            label: 'Running CCA',                      icon: '🔬' },
+        { key: 'Generating AI',      label: 'Generating AI Interpretation',     icon: '✨' },
         { key: 'Analysis complete',  label: 'Analysis complete!',               icon: '🎉' },
     ];
 
@@ -246,6 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!message) return 5;
         const msg = message.toLowerCase();
         if (msg.includes('complete')) return 100;
+        if (msg.includes('generating ai')) return 95;
         if (msg.includes('fitting') || msg.includes('training') || msg.includes('running cca')) return 88;
         if (msg.includes('vif') || msg.includes('multicollinearity')) return 78;
         if (msg.includes('correlation')) return 70;
@@ -297,6 +299,24 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderResults(results) {
         let html = '';
         const { dataset_stats, correlations, vif, model, sst_warnings } = results;
+
+        // --- AI INTERPRETATION CARD (if exists) ---
+        if (results.interpretation) {
+            html += `
+                <div class="result-card interpretation-card">
+                    <div class="result-card-header">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="result-card-icon">✨</span>
+                            <span class="result-card-title">AI Interpretation</span>
+                        </div>
+                        <span class="docs-badge" style="margin-bottom:0; background:rgba(88, 129, 87, 0.2); color:var(--color-bg-light); border:1px solid rgba(88, 129, 87, 0.5);">Gemini 3.1 Flash-Lite</span>
+                    </div>
+                    <div class="result-card-body" style="font-size: 1.05em; line-height: 1.6; color: var(--color-bg-light);">
+                        ${results.interpretation.replace(/\n\n/g, '<br><br>')}
+                    </div>
+                </div>
+            `;
+        }
 
         // --- ENCOUNTER PREDICTION CARD (if exists) ---
         if (results.encounter_prediction) {

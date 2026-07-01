@@ -12,10 +12,11 @@ from cachetools import TTLCache
 from config import INATURALIST_API, TAXON_ID, DEFAULT_ZOOM_THRESHOLD
 
 # Analysis module imports
-from analysis.data_ingestion import build_aligned_dataset
+from analysis.data_ingestion import build_aligned_dataset, RateLimitError
 from analysis.correlation import compute_correlations, compute_vif
 from analysis.probability_model import fit_glm, fit_random_forest, fit_cca
 from analysis.prediction import run_prediction_pipeline
+from analysis.interpretation import generate_interpretation
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,9 +40,9 @@ def health_check():
 cache = TTLCache(maxsize=100, ttl=3600)
 
 @app.get("/api/observations")
-async def get_observations(nelat: float = None, nelng: float = None, swlat: float = None, swlng: float = None):
+async def get_observations(nelat: float = None, nelng: float = None, swlat: float = None, swlng: float = None, taxon_id: int = TAXON_ID):
     # Base URL for iNaturalist observations
-    url = f"https://api.inaturalist.org/v1/observations?taxon_id={TAXON_ID}&per_page=100"
+    url = f"https://api.inaturalist.org/v1/observations?taxon_id={taxon_id}&per_page=100"
     
     # If bounding box is provided
     if nelat and nelng and swlat and swlng:
@@ -64,6 +65,26 @@ async def get_observations(nelat: float = None, nelng: float = None, swlat: floa
         cache[url] = data
         return data
 
+@app.get("/api/species/search")
+async def search_species(q: str):
+    """
+    Proxy to iNaturalist taxa autocomplete endpoint to search for species.
+    """
+    if not q or len(q) < 3:
+        return {"results": []}
+        
+    url = f"https://api.inaturalist.org/v1/taxa/autocomplete?q={q}"
+    if url in cache:
+        return cache[url]
+        
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            cache[url] = data
+            return data
+        return {"results": []}
+
 @app.get("/api/config")
 def get_config():
     return {
@@ -82,6 +103,7 @@ class GeoJSONPolygon(BaseModel):
 
 class PolygonRequest(BaseModel):
     polygon: GeoJSONPolygon
+    taxon_id: int = TAXON_ID
 
 
 def _bbox_from_polygon(coordinates: List[Any]) -> dict:
@@ -119,7 +141,7 @@ async def get_observations_within(body: PolygonRequest):
 
     url = (
         f"https://api.inaturalist.org/v1/observations"
-        f"?taxon_id={TAXON_ID}&per_page=200"
+        f"?taxon_id={body.taxon_id}&per_page=200"
         f"&nelat={bbox['nelat']}&nelng={bbox['nelng']}"
         f"&swlat={bbox['swlat']}&swlng={bbox['swlng']}"
     )
@@ -203,16 +225,30 @@ async def _run_analysis_pipeline(task_id: str, species: str, method: str, limit:
         else:
             raise ValueError(f"Unknown method: {method}")
 
-        update_progress("Analysis complete!")
-
-        analysis_tasks[task_id]["status"] = "complete"
-        analysis_tasks[task_id]["results"] = {
+        update_progress("Generating AI Interpretation...")
+        
+        results_data = {
             "dataset_stats": stats,
             "correlations": correlations,
             "vif": vif,
             "model": model_result,
-            "sst_warnings": sst_warnings[:10],  # Cap at 10 warnings
+            "sst_warnings": sst_warnings[:10],
         }
+        
+        interpretation_text = generate_interpretation(species, results_data)
+        results_data["interpretation"] = interpretation_text
+
+        update_progress("Analysis complete!")
+
+        analysis_tasks[task_id]["status"] = "complete"
+        analysis_tasks[task_id]["results"] = results_data
+
+    except RateLimitError as exc:
+        logger.error("Rate limit hit for task %s: %s", task_id, exc)
+        analysis_tasks[task_id]["status"] = "error"
+        analysis_tasks[task_id]["error"] = (
+            "API quota exceeded: " + str(exc)
+        )
 
     except Exception as exc:
         logger.exception("Analysis failed for task %s", task_id)

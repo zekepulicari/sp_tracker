@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const pages = document.querySelectorAll('.tab-page');
     const brand = document.getElementById('nav-brand');
     let mapInitialized = false;
+    window.currentTaxonId = 41521; // Default to Orcinus orca
 
     /**
      * Switch to a named view.
@@ -107,12 +108,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         })();
 
-        // Add iNaturalist Grid layer for Orcinus orca
-        const gridLayer = L.tileLayer('https://api.inaturalist.org/v1/grid/{z}/{x}/{y}.png?taxon_id=41521&color=%23dc2f02', {
+        window.mapInstance = map;
+
+        // Add iNaturalist Grid layer
+        let gridLayer = L.tileLayer(`https://api.inaturalist.org/v1/grid/{z}/{x}/{y}.png?taxon_id=${window.currentTaxonId}&color=%23dc2f02`, {
             attribution: '&copy; <a href="https://www.inaturalist.org">iNaturalist</a>',
             opacity: 0.8,
             zIndex: 10
         });
+
+        window.updateGridLayer = function(newTaxonId) {
+            if (map.hasLayer(gridLayer)) {
+                map.removeLayer(gridLayer);
+            }
+            gridLayer = L.tileLayer(`https://api.inaturalist.org/v1/grid/{z}/{x}/{y}.png?taxon_id=${newTaxonId}&color=%23dc2f02`, {
+                attribution: '&copy; <a href="https://www.inaturalist.org">iNaturalist</a>',
+                opacity: 0.8,
+                zIndex: 10
+            });
+            if (map.getZoom() <= config.DEFAULT_ZOOM_THRESHOLD) {
+                gridLayer.addTo(map);
+            }
+        };
 
         // Layer Group for individual markers
         const markersLayer = L.layerGroup();
@@ -155,7 +172,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const swlat = bounds.getSouthWest().lat;
                 const swlng = bounds.getSouthWest().lng;
 
-                const response = await fetch(`/api/observations?nelat=${nelat}&nelng=${nelng}&swlat=${swlat}&swlng=${swlng}`);
+                const response = await fetch(`/api/observations?nelat=${nelat}&nelng=${nelng}&swlat=${swlat}&swlng=${swlng}&taxon_id=${window.currentTaxonId}`);
                 const data = await response.json();
 
                 markersLayer.clearLayers();
@@ -214,6 +231,84 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Initial state setup
         updateMapState();
+    }
+
+    // =========================================================
+    // Autocomplete Logic
+    // =========================================================
+    const speciesInput = document.getElementById('analysis-species');
+    const autocompleteList = document.getElementById('species-autocomplete-list');
+    let debounceTimer;
+
+    if (speciesInput && autocompleteList) {
+        speciesInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim();
+            clearTimeout(debounceTimer);
+            
+            if (query.length < 3) {
+                autocompleteList.classList.remove('active');
+                return;
+            }
+
+            debounceTimer = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/species/search?q=${encodeURIComponent(query)}`);
+                    const data = await res.json();
+                    
+                    if (data.results && data.results.length > 0) {
+                        renderAutocomplete(data.results);
+                    } else {
+                        autocompleteList.classList.remove('active');
+                    }
+                } catch (err) {
+                    console.error("Autocomplete error:", err);
+                }
+            }, 300); // 300ms debounce
+        });
+
+        // Hide dropdown on click outside
+        document.addEventListener('click', (e) => {
+            if (!speciesInput.contains(e.target) && !autocompleteList.contains(e.target)) {
+                autocompleteList.classList.remove('active');
+            }
+        });
+    }
+
+    function renderAutocomplete(results) {
+        autocompleteList.innerHTML = '';
+        results.slice(0, 8).forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'autocomplete-item';
+            
+            const imgUrl = item.default_photo && item.default_photo.square_url 
+                ? item.default_photo.square_url 
+                : '/resources/images/default_species.png'; // fallback if no photo
+                
+            li.innerHTML = `
+                <img src="${imgUrl}" class="autocomplete-img" onerror="this.style.display='none'">
+                <div class="autocomplete-info">
+                    <span class="autocomplete-name">${item.name}</span>
+                    <span class="autocomplete-common">${item.preferred_common_name || ''}</span>
+                </div>
+            `;
+            
+            li.addEventListener('click', () => {
+                speciesInput.value = item.name;
+                window.currentTaxonId = item.id;
+                autocompleteList.classList.remove('active');
+                
+                // Immediately update map if initialized
+                if (window.updateGridLayer) {
+                    window.updateGridLayer(item.id);
+                }
+                if (window.mapInstance) {
+                    window.mapInstance.fire('moveend');
+                }
+            });
+            
+            autocompleteList.appendChild(li);
+        });
+        autocompleteList.classList.add('active');
     }
 
     // =========================================================
