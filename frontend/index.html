@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Species Tracker — Orcinus orca Sightings</title>
-    <meta name="description" content="Track Orcinus orca (Killer Whale) sightings worldwide using real-time iNaturalist data with interactive maps and density grids.">
+    <title>Species Tracker</title>
+    <meta name="description" content="Track species sightings worldwide using real-time iNaturalist data with interactive maps and density grids.">
+    <link rel="icon" type="image/png" href="/resources/images/track_icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -15,13 +16,17 @@
     <!-- Top Navigation Bar -->
     <nav id="top-nav">
         <a href="#" id="nav-brand" data-tab="home" title="Back to map">
-            <span class="brand-icon">🐋</span>
+            <img src="/resources/images/track_icon.png" class="brand-icon" style="height: 24px; width: 24px; filter: brightness(0) invert(1);" alt="Species Tracker Icon">
             <span class="brand-text">Species Tracker</span>
         </a>
         <div id="nav-tabs">
             <button class="nav-tab" data-tab="purpose" id="tab-purpose">
                 <span class="tab-icon">🎯</span>
                 Purpose
+            </button>
+            <button class="nav-tab" data-tab="docs" id="tab-docs">
+                <span class="tab-icon">📖</span>
+                Documentation
             </button>
             <button class="nav-tab" data-tab="resources" id="tab-resources">
                 <span class="tab-icon">📚</span>
@@ -85,12 +90,18 @@
             <div class="analysis-module">
                 <div class="module-section">
                     <label class="module-label" for="analysis-species">Target Species</label>
-                    <input type="text" id="analysis-species" class="module-input"
-                           value="Orcinus orca" placeholder="e.g. Orcinus orca" />
+                    <div class="autocomplete-container">
+                        <input type="text" id="analysis-species" class="module-input"
+                               value="Orcinus orca" placeholder="e.g. Orcinus orca" autocomplete="off" />
+                        <ul id="species-autocomplete-list" class="autocomplete-list"></ul>
+                    </div>
                 </div>
 
                 <div class="module-section">
-                    <label class="module-label" for="analysis-limit">Sample Size: <span id="limit-value">500</span></label>
+                    <label class="module-label" for="analysis-limit" style="display: flex; align-items: center; justify-content: space-between;">
+                        <span>Sample Size: <span id="limit-value">500</span></span>
+                        <span class="info-tooltip-trigger" data-tooltip="The number of historical observation records fetched from OBIS. An equal number of random pseudo-absence points will be generated to train the model. Larger values improve accuracy but take longer to run.">i</span>
+                    </label>
                     <input type="range" id="analysis-limit" class="module-range"
                            min="100" max="2000" step="100" value="500" />
                     <div class="range-labels">
@@ -156,6 +167,81 @@
             }
             </script>
         </aside>
+    </section>
+
+    <!-- Tab Content: Documentation -->
+    <section id="page-docs" class="tab-page" style="display: none;">
+        <div class="docs-page">
+            <h1>Statistical Analysis Documentation</h1>
+            <p class="docs-subtitle">A simple guide to the statistical methods and models used in Species Tracker.</p>
+
+            <ul class="docs-index">
+                <li><a href="#doc-correlation">Correlation (Pearson & Spearman)</a></li>
+                <li><a href="#doc-vif">Multicollinearity (VIF)</a></li>
+                <li><a href="#doc-glm">Generalized Linear Model (GLM)</a></li>
+                <li><a href="#doc-rf">Random Forest</a></li>
+                <li><a href="#doc-cca">Canonical Correspondence Analysis (CCA)</a></li>
+            </ul>
+
+            <div class="docs-content">
+                <div class="docs-section" id="doc-correlation">
+                    <h2>Correlation (Pearson & Spearman)</h2>
+                    <span class="docs-badge">Exploratory Analysis</span>
+                    <ul>
+                        <li><strong>What it is:</strong> Correlation measures whether two variables change together. For example, does the frequency of species sightings increase when sea surface temperature rises?</li>
+                        <li><strong>Pearson Correlation:</strong> Measures linear relationships, essentially checking if the two variables can be described by a straight line.</li>
+                        <li><strong>Spearman's Rank Correlation:</strong> Measures monotonic relationships. This is useful for identifying general upward or downward trends, even if the relationship is not perfectly linear (e.g., a curve).</li>
+                        <li><strong>Output:</strong> Both methods provide a correlation coefficient (showing the strength and direction of the relationship) and a p-value (indicating statistical significance).</li>
+                    </ul>
+                    <a href="https://en.wikipedia.org/wiki/Correlation_and_dependence" target="_blank" class="docs-link">Learn more about Correlation ↗</a>
+                </div>
+
+                <div class="docs-section" id="doc-vif">
+                    <h2>Multicollinearity (VIF)</h2>
+                    <span class="docs-badge">Data Quality Check</span>
+                    <ul>
+                        <li><strong>What it is:</strong> Variance Inflation Factor (VIF) is a diagnostic tool used to detect multicollinearity. This occurs when two or more predictor variables (like Air Temperature and Sea Surface Temperature) are highly correlated with each other.</li>
+                        <li><strong>Why it matters:</strong> If variables are too similar, they provide redundant information, which can make statistical models unstable and their coefficients difficult to interpret.</li>
+                        <li><strong>How to interpret:</strong> VIF quantifies how much the variance of a regression coefficient is inflated due to this redundancy. A VIF value above 5 or 10 typically indicates problematic multicollinearity, suggesting that one of the redundant variables should be removed.</li>
+                    </ul>
+                    <a href="https://en.wikipedia.org/wiki/Variance_inflation_factor" target="_blank" class="docs-link">Learn more about VIF ↗</a>
+                </div>
+
+                <div class="docs-section" id="doc-glm">
+                    <h2>Generalized Linear Model (GLM)</h2>
+                    <span class="docs-badge">Binary Classification</span>
+                    <ul>
+                        <li><strong>What it is:</strong> In this application, we use a specific type of GLM known as Logistic Regression. It calculates the probability of a binary outcome—in our case, the presence (1) or absence (0) of a species.</li>
+                        <li><strong>How it works:</strong> The model takes environmental conditions (such as water temperature and current velocity) at locations where the species was observed, and compares them to randomly generated "pseudo-absence" points.</li>
+                        <li><strong>Output:</strong> It fits a logistic curve to these data points, allowing us to predict the probability of encountering the species given a specific set of environmental conditions.</li>
+                    </ul>
+                    <a href="https://en.wikipedia.org/wiki/Generalized_linear_model" target="_blank" class="docs-link">Learn more about GLM ↗</a>
+                </div>
+
+                <div class="docs-section" id="doc-rf">
+                    <h2>Random Forest</h2>
+                    <span class="docs-badge">Machine Learning / Ensemble</span>
+                    <ul>
+                        <li><strong>What it is:</strong> Random Forest is a powerful machine learning algorithm that creates an "ensemble" of many individual decision trees. Each tree is trained on a random subset of the data and a random subset of the predictor variables.</li>
+                        <li><strong>How it works:</strong> When making a prediction, the Random Forest aggregates the "votes" from all of its constituent trees. This makes it highly robust against overfitting.</li>
+                        <li><strong>Advantages:</strong> It is exceptionally capable of capturing complex, non-linear interactions between environmental variables (for instance, if high wind speeds only matter when the water is warm).</li>
+                        <li><strong>Feature Importance:</strong> It also provides a measure of "feature importance," revealing which environmental factors are most influential in predicting species presence.</li>
+                    </ul>
+                    <a href="https://en.wikipedia.org/wiki/Random_forest" target="_blank" class="docs-link">Learn more about Random Forest ↗</a>
+                </div>
+
+                <div class="docs-section" id="doc-cca">
+                    <h2>Canonical Correspondence Analysis (CCA)</h2>
+                    <span class="docs-badge">Multivariate Ecology</span>
+                    <ul>
+                        <li><strong>What it is:</strong> Canonical Correspondence Analysis (CCA) is a multivariate ordination technique frequently used in community ecology. Instead of just predicting presence or absence, CCA relates species composition directly to environmental gradients.</li>
+                        <li><strong>How it works:</strong> It projects the species occurrence data onto axes that are constrained to be linear combinations of the environmental variables.</li>
+                        <li><strong>Interpretation:</strong> By doing so, CCA visually and statistically highlights the specific environmental "niche" or preferences of the species, showing how different environmental factors structure the biological community.</li>
+                    </ul>
+                    <a href="https://en.wikipedia.org/wiki/Canonical_correspondence_analysis" target="_blank" class="docs-link">Learn more about CCA ↗</a>
+                </div>
+            </div>
+        </div>
     </section>
 
     <!-- Tab Content: Purpose -->

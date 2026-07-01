@@ -4,18 +4,20 @@ To use the Species Tracker application, follow these steps:
 
 1. **Launch the Application**: Run the FastAPI server in the `backend` directory using `uvicorn main:app --reload` (or `python3 -m uvicorn main:app --reload`).
 2. **Open the Webpage**: Navigate your browser to `http://localhost:8000/`.
-3. **Explore the Map**:
+3. **Search for any Species**:
+   - Use the **Target Species** search input in the Ecological Analysis Panel to search iNaturalist's database. 
+   - A dropdown with species scientific names, common names, and thumbnails will appear. Select a species to automatically update the map and analysis target.
+4. **Explore the Map**:
    - Drag the map to explore global regions.
-   - You will see a grid layer indicating the density of *Orcinus orca* observations.
-4. **Zoom for Details**:
+   - You will see a grid layer indicating the density of the selected species' observations.
+5. **Zoom for Details**:
    - Zoom in past the designated threshold (default: > 6) to transition from the grid layer to individual observation markers.
-5. **View Sighting Info**:
+6. **View Sighting Info**:
    - Click on any specific marker to view details about that observation, including the date, photo, observer username, and location name.
-6. **Ecological Analysis Panel**:
-   - The right-side panel contains the Ecological Analysis module.
-   - Select a target species, sample size, and statistical model (GLM, Random Forest, or CCA).
+7. **Ecological Analysis Panel**:
+   - Select a sample size and statistical model (GLM, Random Forest, or CCA).
    - Click **Run Analysis** to fetch historical OBIS occurrences, align them with Open-Meteo environmental data, and run a Species Distribution Model.
-   - Results include Pearson/Spearman correlation tables, VIF multicollinearity check, model coefficients, variable importance, and encounter probability.
+   - Results include an **AI Interpretation Module** (using Gemini 3.1 Flash-Lite) which explains the statistical outputs in plain language, Pearson/Spearman correlation tables, VIF multicollinearity check, model coefficients, variable importance, and encounter probability.
 
 ---
 
@@ -23,10 +25,11 @@ To use the Species Tracker application, follow these steps:
 
 The analysis module implements a full Species Distribution Modeling (SDM) pipeline:
 
-**Data Sources (all free, no API key required):**
+**Data Sources (all free, no API key required except Gemini):**
 - **OBIS API** (`api.obis.org/v3`) — Historical marine species occurrence records
 - **Open-Meteo Historical** (`archive-api.open-meteo.com`) — Hourly temperature, wind speed/direction (back to 1940)
 - **Open-Meteo Marine** (`marine-api.open-meteo.com`) — Sea surface temperature, wave height, ocean current velocity
+- **Gemini API** (`gemini-3.1-flash-lite`) — Natural language analysis explanation (requires `GEMINI_KEY` in `.env`)
 
 **Pipeline:**
 1. Fetch occurrence records from OBIS
@@ -36,9 +39,10 @@ The analysis module implements a full Species Distribution Modeling (SDM) pipeli
 5. Compute Pearson & Spearman correlation matrices with p-values
 6. Check Variance Inflation Factor (VIF) for multicollinearity
 7. Fit selected model (GLM / Random Forest / CCA) with 80/20 train/test split
-8. Return encounter probability + model metrics
+8. Generate a natural language **AI interpretation** summarizing the results
+9. Return encounter probability, AI interpretation, and model metrics
 
-**Backend modules:** `backend/analysis/data_ingestion.py`, `correlation.py`, `probability_model.py`
+**Backend modules:** `backend/analysis/data_ingestion.py`, `correlation.py`, `probability_model.py`, `interpretation.py`
 
 ---
 
@@ -61,6 +65,7 @@ The visual design uses the following color palette:
 **Icons**
 - Area selector: <a href="https://www.flaticon.com/free-icons/polygonal" title="polygonal icons">Polygonal icons created by Voysla - Flaticon</a>
 - Ruler: <a href="https://www.flaticon.com/free-icons/ruler" title="ruler icons">Ruler icons created by Freepik - Flaticon</a>
+- Animal Tracks Icon:<a href="https://www.flaticon.com/free-icons/dog" title="dog icons">Dog icons created by Made by Made - Flaticon</a>
 
 ## Weaknesses & Limitations (Predictive Model)
 

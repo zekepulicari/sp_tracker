@@ -11,6 +11,7 @@ points, retrieves environmental conditions for every point from Open-Meteo,
 and returns a single aligned Pandas DataFrame ready for statistical analysis.
 """
 
+import asyncio
 import random
 import logging
 from datetime import datetime, timedelta
@@ -34,6 +35,17 @@ SST_DIVERGENCE_THRESHOLD = 2.0
 
 # Timeout for individual API requests (seconds)
 API_TIMEOUT = 30.0
+
+# Maximum concurrent Open-Meteo requests (stay well under 600/min limit)
+MAX_CONCURRENT_REQUESTS = 10
+
+
+# ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
+class RateLimitError(Exception):
+    """Raised when an API returns HTTP 429 (Too Many Requests)."""
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -156,6 +168,14 @@ async def fetch_historical_weather(
         client = client or httpx.AsyncClient(timeout=API_TIMEOUT)
         try:
             resp = await client.get(OPEN_METEO_ARCHIVE, params=params)
+
+            if resp.status_code == 429:
+                raise RateLimitError(
+                    "Open-Meteo Weather API quota exceeded (HTTP 429). "
+                    "Free tier allows 10,000 requests/day and 600/min. "
+                    "Please try again later or reduce the sample size."
+                )
+
             resp.raise_for_status()
             data = resp.json()
 
@@ -168,6 +188,8 @@ async def fetch_historical_weather(
             if should_close:
                 await client.aclose()
 
+    except RateLimitError:
+        raise  # Let rate limit errors propagate immediately
     except (httpx.HTTPError, ValueError) as exc:
         logger.warning("Open-Meteo weather error for (%s, %s, %s): %s",
                        lat, lng, date, exc)
@@ -213,6 +235,14 @@ async def fetch_marine_conditions(
         client = client or httpx.AsyncClient(timeout=API_TIMEOUT)
         try:
             resp = await client.get(OPEN_METEO_MARINE, params=params)
+
+            if resp.status_code == 429:
+                raise RateLimitError(
+                    "Open-Meteo Marine API quota exceeded (HTTP 429). "
+                    "Free tier allows 10,000 requests/day and 600/min. "
+                    "Please try again later or reduce the sample size."
+                )
+
             resp.raise_for_status()
             data = resp.json()
 
@@ -225,6 +255,8 @@ async def fetch_marine_conditions(
             if should_close:
                 await client.aclose()
 
+    except RateLimitError:
+        raise  # Let rate limit errors propagate immediately
     except (httpx.HTTPError, ValueError) as exc:
         logger.warning("Open-Meteo marine error for (%s, %s, %s): %s",
                        lat, lng, date, exc)
@@ -361,14 +393,14 @@ async def build_aligned_dataset(
 
     _progress("Fetching environmental data from Open-Meteo...")
     sst_warnings = []
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+    completed_count = 0
+    total_points = len(all_points)
 
-    async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
-        for i, point in enumerate(all_points):
-            if i % 50 == 0 and i > 0:
-                _progress(
-                    f"Processing environmental data: {i}/{len(all_points)} points..."
-                )
-
+    async def _fetch_env_for_point(point, idx, client):
+        """Fetch weather + marine data for a single point, guarded by semaphore."""
+        nonlocal completed_count
+        async with semaphore:
             weather = await fetch_historical_weather(
                 point["lat"], point["lng"], point["date"], client=client
             )
@@ -376,19 +408,32 @@ async def build_aligned_dataset(
                 point["lat"], point["lng"], point["date"], client=client
             )
 
-            point["sst"] = marine.get("sea_surface_temperature")
-            point["wind_speed"] = weather.get("wind_speed_10m")
-            point["wind_direction"] = weather.get("wind_direction_10m")
-            point["wave_height"] = marine.get("wave_height")
-            point["ocean_current_velocity"] = marine.get("ocean_current_velocity")
+        point["sst"] = marine.get("sea_surface_temperature")
+        point["wind_speed"] = weather.get("wind_speed_10m")
+        point["wind_direction"] = weather.get("wind_direction_10m")
+        point["wave_height"] = marine.get("wave_height")
+        point["ocean_current_velocity"] = marine.get("ocean_current_velocity")
 
-            if point["presence"] == 1:
-                validation = validate_sst(point["sst"], point.get("obis_sst"))
-                point["sst_validation_ok"] = validation["ok"]
-                if validation["warning"]:
-                    sst_warnings.append(validation["warning"])
-            else:
-                point["sst_validation_ok"] = True
+        if point["presence"] == 1:
+            validation = validate_sst(point["sst"], point.get("obis_sst"))
+            point["sst_validation_ok"] = validation["ok"]
+            if validation["warning"]:
+                sst_warnings.append(validation["warning"])
+        else:
+            point["sst_validation_ok"] = True
+
+        completed_count += 1
+        if completed_count % 50 == 0:
+            _progress(
+                f"Processing environmental data: {completed_count}/{total_points} points..."
+            )
+
+    async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
+        tasks = [
+            _fetch_env_for_point(point, i, client)
+            for i, point in enumerate(all_points)
+        ]
+        await asyncio.gather(*tasks)
 
     _progress("Building aligned DataFrame...")
 
