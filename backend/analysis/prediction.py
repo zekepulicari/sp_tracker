@@ -5,6 +5,7 @@ import httpx
 import pandas as pd
 import asyncio
 import math
+import numpy as np
 
 from analysis.data_ingestion import fetch_obis_occurrences, generate_pseudo_absences, fetch_historical_weather, fetch_marine_conditions
 from analysis.probability_model import fit_glm, fit_random_forest, fit_cca
@@ -218,14 +219,20 @@ async def run_prediction_pipeline(task_id: str, species: str, lat: float, lng: f
             mode = "Historical Proxy (> 14 days)"
             
         update_progress("Predicting encounter probability...")
-        import numpy as np
+        # Clean and sanitize environmental conditions for model input and JSON serialization
+        # We must replace NaN values with None (null in JSON) to prevent HTTP 500 errors.
+        # If a variable is entirely missing, it will safely be ignored in the logit calculation.
         for col in ["air_temp", "wind_speed", "precipitation", "sst", "wave_height", "ocean_current"]:
+            # If the value is completely missing from the Open-Meteo API response:
             if env_conditions.get(col) is None:
                 if col in df.columns:
+                    # Attempt to fall back to the historical dataset mean for that variable
                     mean_val = df[col].mean()
+                    # If the entire training column was NaN, fallback to None. Otherwise, use the mean.
                     env_conditions[col] = None if np.isnan(mean_val) else float(mean_val)
                 else:
                     env_conditions[col] = None
+            # If the API returned a value, but the value is NaN:
             elif isinstance(env_conditions[col], float) and np.isnan(env_conditions[col]):
                 env_conditions[col] = None
                 
