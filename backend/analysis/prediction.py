@@ -7,7 +7,7 @@ import asyncio
 import math
 import numpy as np
 
-from analysis.data_ingestion import fetch_obis_occurrences, generate_pseudo_absences, fetch_historical_weather, fetch_marine_conditions
+from analysis.data_ingestion import fetch_inaturalist_occurrences, generate_pseudo_absences, fetch_historical_weather, fetch_marine_conditions
 from analysis.probability_model import fit_glm, fit_random_forest, fit_cca
 from analysis.interpretation import generate_interpretation
 
@@ -218,7 +218,7 @@ async def run_prediction_pipeline(task_id: str, species: str, lat: float, lng: f
             }
             
             update_progress(f"Fetching local historical occurrences ({radius_km}km radius)...")
-            occurrences = await fetch_obis_occurrences(species=species, limit=limit, bbox=bbox)
+            occurrences = await fetch_inaturalist_occurrences(species=species, limit=limit, bbox=bbox)
             
             # If we found at least 50 records, we have enough data to stop expanding.
             if len(occurrences) >= 50:
