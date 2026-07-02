@@ -21,20 +21,16 @@
         </a>
         <div id="nav-tabs">
             <button class="nav-tab" data-tab="purpose" id="tab-purpose">
-                <span class="tab-icon">🎯</span>
+                <span class="tab-icon"><img src="/resources/images/target_icon.png" width="18" height="18" style="vertical-align: middle;"></span>
                 Purpose
             </button>
             <button class="nav-tab" data-tab="docs" id="tab-docs">
-                <span class="tab-icon">📖</span>
+                <span class="tab-icon"><img src="/resources/images/open-book_icon.png" width="18" height="18" style="vertical-align: middle;"></span>
                 Documentation
             </button>
             <button class="nav-tab" data-tab="resources" id="tab-resources">
-                <span class="tab-icon">📚</span>
+                <span class="tab-icon"><img src="/resources/images/box_icon.png" width="18" height="18" style="vertical-align: middle;"></span>
                 Resources
-            </button>
-            <button class="nav-tab" data-tab="whoami" id="tab-whoami">
-                <span class="tab-icon">👤</span>
-                Who am I
             </button>
         </div>
         <div id="nav-spacer"></div>
@@ -246,10 +242,18 @@
 
     <!-- Tab Content: Purpose -->
     <section id="page-purpose" class="tab-page" style="display: none;">
-        <div class="empty-page">
-            <div class="empty-icon">🎯</div>
-            <h1>Purpose</h1>
-            <p>Coming soon...</p>
+        <div class="docs-page">
+            <h1 style="display: flex; align-items: center; gap: 12px;">
+                <img src="/resources/images/target_icon.png" width="32" height="32"> 
+                Purpose
+            </h1>
+            <div style="margin-top: 24px; font-size: 1.05em; line-height: 1.6; color: var(--color-bg-dark);">
+                <p style="margin-bottom: 16px;">This begins with a story. I took a plane to see orcas for the first time. I spent hours sitting on a beach, constantly drinking hot water so I wouldn't freeze in the low temperatures. But days passed, and I saw nothing, even though I had taken the tides and the time of year into account based on professional guidance.</p>
+                <p style="margin-bottom: 16px;">That was my motivation to create this project. I needed the power of statistics and machine learning, fed by historical observations and additional variables. I knew that other factors were important, like the wind, which I hadn't been able to take into account at the time.</p>
+                <p style="margin-bottom: 24px;">Please, feel free to create issues if you saw an improvement opportunity.</p>
+                <p>Love you.</p>
+                <p><strong>Zeke</strong></p>
+            </div>
         </div>
     </section>
 
@@ -324,14 +328,7 @@
         </div>
     </section>
 
-    <!-- Tab Content: Who am I -->
-    <section id="page-whoami" class="tab-page" style="display: none;">
-        <div class="empty-page">
-            <div class="empty-icon">👤</div>
-            <h1>Who am I</h1>
-            <p>Coming soon...</p>
-        </div>
-    </section>
+    <!-- (Who am I tab removed) -->
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/@turf/turf@7/turf.min.js"></script>

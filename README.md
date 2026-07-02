@@ -85,6 +85,7 @@ While the encounter prediction model provides a powerful, data-driven approach t
 - [ ] Add statistics module to calculate correlations between variables. For example, correlation between deforestation and number of animals in that area.
 - [ ] Add information about threatened status of species.
 - [ ] Download threatened species databases (IUCN).
-- [ ] Calculate correlation between wind, tides, current, temperature, date of observation to estimate the probability of encountering a species in certain area.
-- [ ] Find a way to test if the calculations are right by comparing with real data. Use the 20% of data that was left out to test if the other 80% was calculated correctly. This is not machile learning, we don't have much information to train a model.
+- [X] Calculate correlation between wind, tides, current, temperature, date of observation to estimate the probability of encountering a species in certain area.
+- [X] Find a way to test if the calculations are right by comparing with real data. Use the 20% of data that was left out to test if the other 80% was calculated correctly. This is not machile learning, we don't have much information to train a model.
 - [ ] In the statistics module we could add a biplot with variables and species. 
+- [ ] Save iNaturalist first-time-searches in local DB. Remember: do not download the images, their size is too big and is unnecesary for the purpose of this project. 

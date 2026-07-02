@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  sptracker:
+    build: .
+    container_name: sp_tracker_app
+    ports:
+      - "8000:8000"
+    environment:
+      # You can override .env variables here if needed
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mount the backend directory so that hot-reload works in development
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+      - ./resources:/app/resources
+      - ./.env:/app/.env
+    restart: unless-stopped
