@@ -132,6 +132,90 @@ async def fetch_obis_occurrences(
 
 
 # ---------------------------------------------------------------------------
+# iNaturalist: Species Occurrence Fetching
+# ---------------------------------------------------------------------------
+async def fetch_inaturalist_occurrences(
+    species: str,
+    limit: int = 500,
+    bbox: Optional[Dict[str, float]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Fetch historical species occurrence records from the iNaturalist API.
+
+    :param species: Scientific name, e.g. "Columba livia".
+    :param limit: Maximum number of records to retrieve.
+    :param bbox: Optional bounding box dict {min_lng, min_lat, max_lng, max_lat}.
+    :returns: List of dicts with keys: lat, lng, date, month.
+    """
+    records: List[Dict[str, Any]] = []
+    page_size = min(limit, 200)  # iNaturalist API maxes out efficiently around 200 per page for observations
+    page = 1
+
+    async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
+        while len(records) < limit:
+            params: Dict[str, Any] = {
+                "taxon_name": species,
+                "per_page": page_size,
+                "page": page,
+                "quality_grade": "research",  # Ensure high quality data
+                "has[]": "geo" # Must have coordinates
+            }
+            if bbox:
+                params["nelat"] = bbox['max_lat']
+                params["nelng"] = bbox['max_lng']
+                params["swlat"] = bbox['min_lat']
+                params["swlng"] = bbox['min_lng']
+
+            try:
+                resp = await client.get("https://api.inaturalist.org/v1/observations", params=params)
+                resp.raise_for_status()
+                data = resp.json()
+            except (httpx.HTTPError, ValueError) as exc:
+                logger.error("iNaturalist API error: %s", exc)
+                break
+
+            results = data.get("results", [])
+            if not results:
+                break
+
+            for rec in results:
+                location = rec.get("location")
+                if not location:
+                    continue
+                    
+                lat_str, lng_str = location.split(",")
+                lat = float(lat_str)
+                lng = float(lng_str)
+                
+                observed_on = rec.get("observed_on")
+                if not observed_on:
+                    continue
+
+                try:
+                    dt = datetime.fromisoformat(observed_on)
+                except ValueError:
+                    continue
+
+                records.append({
+                    "lat": lat,
+                    "lng": lng,
+                    "date": dt.strftime("%Y-%m-%d"),
+                    "month": dt.month,
+                })
+
+                if len(records) >= limit:
+                    break
+
+            page += 1
+            if len(results) < page_size:
+                # We've reached the end of the available results
+                break
+
+    logger.info("Fetched %d iNaturalist records for '%s'", len(records), species)
+    return records
+
+
+# ---------------------------------------------------------------------------
 # Open-Meteo: Historical Weather
 # ---------------------------------------------------------------------------
 async def fetch_historical_weather(
