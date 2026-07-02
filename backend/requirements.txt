@@ -4,3 +4,9 @@ pytest
 httpx
 cachetools
 python-dotenv
+numpy
+pandas
+scikit-learn
+statsmodels
+scipy
+google-generativeai

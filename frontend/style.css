@@ -318,6 +318,7 @@ body, html {
     padding: 20px;
     box-shadow: var(--shadow-panel);
     z-index: 2;
+    overflow-y: auto;
 }
 
 /* --- Analysis Header & Persona Badge --- */
