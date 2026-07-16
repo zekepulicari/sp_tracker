@@ -371,7 +371,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </table>
                     <div style="margin-top: 15px; padding: 12px; background-color: rgba(88, 129, 87, 0.1); border-left: 3px solid var(--color-accent-primary); border-radius: 4px; font-size: 0.8em; line-height: 1.5; color: var(--color-text-main);">
                         <strong style="color: var(--color-accent-light); display: block; margin-bottom: 4px;">How is this calculated?</strong>
-                        This probability is calculated using a Logistic Regression model trained on historical sightings. The model assigns a mathematical weight (coefficient) to each forecasted environmental condition shown above. These values are multiplied by their respective weights and combined to produce the final probability percentage.
+                        First, the model uses your selected <strong>Location</strong> and <strong>Target Date</strong> to fetch the exact weather forecast from the Open-Meteo API for that specific spot. 
+                        Then, this probability is calculated using a Logistic Regression model trained on historical sightings. The model assigns a mathematical weight (coefficient) to each forecasted environmental condition shown above. These values are multiplied by their respective weights and combined to produce the final probability percentage.
                     </div>
                 </div>
             `;
