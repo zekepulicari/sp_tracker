@@ -106,6 +106,14 @@
                     </div>
                 </div>
 
+                <div class="module-section">
+                    <label class="module-label" for="analysis-method">Analysis Model</label>
+                    <select id="analysis-method" class="module-select">
+                        <option value="glm">GLM (Weather Forecast)</option>
+                        <option value="rustic">Rustic (Historical Base Rate - No Weather)</option>
+                        <option value="rf">Random Forest (Local Importance - No Forecast)</option>
+                    </select>
+                </div>
 
                 <div class="module-section" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(88,129,87,0.3);">
                     <label class="module-label" style="color: var(--color-accent-primary);">Target Prediction</label>

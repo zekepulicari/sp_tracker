@@ -279,7 +279,7 @@ async def run_analysis(request: AnalysisRequest):
     # Launch the pipeline as an asyncio task
     if request.target_lat is not None and request.target_lng is not None and request.target_date:
         asyncio.create_task(
-            run_prediction_pipeline(task_id, request.species, request.target_lat, request.target_lng, request.target_date, request.radius_km, request.limit, analysis_tasks)
+            run_prediction_pipeline(task_id, request.species, request.target_lat, request.target_lng, request.target_date, request.radius_km, request.limit, request.method, analysis_tasks)
         )
     else:
         asyncio.create_task(

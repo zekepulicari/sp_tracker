@@ -357,6 +357,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         Radius Used: ${pred.radius_km_used.toFixed(1)} km<br>
                         Mode: <em>${pred.mode}</em>
                     </div>
+            `;
+
+            if (pred.algorithm_method === "glm") {
+                html += `
                     <div style="font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-accent-light); opacity: 0.85; margin-bottom: 4px;">
                         Forecasted Conditions
                     </div>
@@ -374,6 +378,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         First, the model uses your selected <strong>Location</strong> and <strong>Target Date</strong> to fetch the exact weather forecast from the Open-Meteo API for that specific spot. 
                         Then, this probability is calculated using a Logistic Regression model trained on historical sightings. The model assigns a mathematical weight (coefficient) to each forecasted environmental condition shown above. These values are multiplied by their respective weights and combined to produce the final probability percentage.
                     </div>
+                `;
+            } else if (pred.algorithm_method === "rustic") {
+                html += `
+                    <div style="margin-top: 15px; padding: 12px; background-color: rgba(88, 129, 87, 0.1); border-left: 3px solid var(--color-accent-primary); border-radius: 4px; font-size: 0.8em; line-height: 1.5; color: var(--color-text-main);">
+                        <strong style="color: var(--color-accent-light); display: block; margin-bottom: 4px;">How is this calculated? (Rustic Baseline)</strong>
+                        This probability completely ignores weather forecasts. It is calculated simply by evaluating the historical frequency of sightings for the selected month within the local radius. This serves as a raw baseline to see if the weather actually helps predict the species better than random chance.
+                    </div>
+                `;
+            } else if (pred.algorithm_method === "rf") {
+                html += `
+                    <div style="margin-top: 15px; padding: 12px; background-color: rgba(88, 129, 87, 0.1); border-left: 3px solid var(--color-accent-primary); border-radius: 4px; font-size: 0.8em; line-height: 1.5; color: var(--color-text-main);">
+                        <strong style="color: var(--color-accent-light); display: block; margin-bottom: 4px;">Why is this not a forecast?</strong>
+                        Random Forest models are complex and cannot be easily translated into a simple forecast formula via API. The percentage shown here is simply the <em>historical training accuracy</em> for the local area. However, scroll down to see the "Variable Importance" bars which show exactly what environmental factors matter most in this specific location!
+                    </div>
+                `;
+            }
+
+            html += `
                 </div>
             `;
         }

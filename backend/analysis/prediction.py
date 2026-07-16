@@ -165,7 +165,7 @@ async def fetch_open_meteo_historical_average(lat: float, lng: float, target_dat
             
     return env_data
 
-async def run_prediction_pipeline(task_id: str, species: str, lat: float, lng: float, target_date: str, radius_km: float, limit: int, analysis_tasks: dict):
+async def run_prediction_pipeline(task_id: str, species: str, lat: float, lng: float, target_date: str, radius_km: float, limit: int, method: str, analysis_tasks: dict):
     """
     Orchestrate the end-to-end local prediction pipeline for a specific geographic coordinate and date.
     
@@ -259,95 +259,104 @@ async def run_prediction_pipeline(task_id: str, species: str, lat: float, lng: f
         # ---------------------------------------------------------------------
         # STEP 3: Environmental Data Alignment (Training Data)
         # ---------------------------------------------------------------------
-        # For every presence and absence point, we must fetch what the weather/ocean was like
-        # at that exact location on that exact historical date.
-        update_progress("Fetching environmental history for training...")
-        
-        async with httpx.AsyncClient() as client:
-            for i, point in enumerate(dataset_points):
-                if i % 50 == 0 and i > 0:
-                    update_progress(f"Processing environmental data: {i}/{len(dataset_points)} points...")
+        if method == "rustic":
+            update_progress("Rustic mode: Skipping environmental history (using only seasonality)...")
+            for point in dataset_points:
+                point["month"] = int(point["date"].split("-")[1])
+        else:
+            update_progress("Fetching environmental history for training...")
+            async with httpx.AsyncClient() as client:
+                for i, point in enumerate(dataset_points):
+                    if i % 50 == 0 and i > 0:
+                        update_progress(f"Processing environmental data: {i}/{len(dataset_points)} points...")
+                        
+                    weather = await fetch_historical_weather(
+                        point["lat"], point["lng"], point["date"], client=client
+                    )
+                    marine = await fetch_marine_conditions(
+                        point["lat"], point["lng"], point["date"], client=client
+                    )
                     
-                weather = await fetch_historical_weather(
-                    point["lat"], point["lng"], point["date"], client=client
-                )
-                marine = await fetch_marine_conditions(
-                    point["lat"], point["lng"], point["date"], client=client
-                )
-                
-                point["sst"] = marine.get("sea_surface_temperature")
-                point["wind_speed"] = weather.get("wind_speed_10m")
-                point["air_temp"] = weather.get("temperature_2m")
-                point["precipitation"] = weather.get("precipitation")
-                point["wave_height"] = marine.get("wave_height")
-                point["ocean_current"] = marine.get("ocean_current_velocity")
+                    point["sst"] = marine.get("sea_surface_temperature")
+                    point["wind_speed"] = weather.get("wind_speed_10m")
+                    point["air_temp"] = weather.get("temperature_2m")
+                    point["precipitation"] = weather.get("precipitation")
+                    point["wave_height"] = marine.get("wave_height")
+                    point["ocean_current"] = marine.get("ocean_current_velocity")
+                    point["month"] = int(point["date"].split("-")[1])
         
         # Convert to a DataFrame for statistical modeling
         df = pd.DataFrame(dataset_points)
         
-        # Drop rows missing critical baseline data (Sea Surface Temp and Wind Speed)
-        df.dropna(subset=["sst", "wind_speed"], inplace=True)
+        if method != "rustic":
+            # Drop rows missing critical baseline data (Sea Surface Temp and Wind Speed)
+            df.dropna(subset=["sst", "wind_speed"], inplace=True)
         
         # Ensure we still have a minimally viable dataset after dropping empty rows
         if df.empty or df["presence"].sum() < 5 or (df["presence"] == 0).sum() < 5:
-            raise ValueError("Insufficient environmental data for local training.")
+            raise ValueError("Insufficient data for local training.")
             
         # ---------------------------------------------------------------------
         # STEP 4: Local Model Training
         # ---------------------------------------------------------------------
-        update_progress("Fitting local predictive model (GLM)...")
-        model_result = fit_glm(df)
+        update_progress(f"Fitting local predictive model ({method})...")
+        if method == "rf":
+            from backend.analysis.probability_model import fit_random_forest
+            model_result = fit_random_forest(df)
+        else:
+            # Rustic uses GLM (but with only the month predictor)
+            model_result = fit_glm(df)
         
         # ---------------------------------------------------------------------
-        # STEP 5: Environmental Forecasting (Inference Data)
+        # STEP 5 & 6: Environmental Forecasting & Prediction
         # ---------------------------------------------------------------------
-        # Determine if the target date is close enough for a real forecast, or if we need a historical proxy
         target = datetime.strptime(target_date, "%Y-%m-%d")
         days_diff = (target - datetime.now()).days
         
-        if days_diff <= 14:
-            update_progress(f"Fetching weather forecast for {target_date}...")
-            env_conditions = await fetch_open_meteo_forecast(lat, lng, target_date)
-            mode = "Forecast (<= 14 days)"
+        env_conditions = {}
+        prob = 0.0
+        mode = "Unknown"
+        
+        if method == "rf":
+            mode = "Local Training Average (No Forecast)"
+            prob = model_result.get("mean_encounter_probability", 0.0)
+            update_progress("Skipping forecast (Random Forest local mode)...")
+        elif method == "rustic":
+            mode = "Rustic Historical Baseline"
+            env_conditions = {"month": target.month}
+            update_progress("Predicting probability using baseline seasonality...")
+            coeffs = model_result.get("coefficients", {})
+            logit = coeffs.get("intercept", 0.0) + (coeffs.get("month", 0.0) * target.month)
+            prob = 1.0 / (1.0 + np.exp(-logit))
         else:
-            update_progress(f"Fetching historical average for {target_date}...")
-            env_conditions = await fetch_open_meteo_historical_average(lat, lng, target_date)
-            mode = "Historical Proxy (> 14 days)"
-            
-        # ---------------------------------------------------------------------
-        # STEP 6: Encounter Probability Calculation
-        # ---------------------------------------------------------------------
-        update_progress("Predicting encounter probability...")
-        
-        # Clean and sanitize environmental conditions for model input and JSON serialization
-        # We must replace NaN values with None (null in JSON) to prevent HTTP 500 errors.
-        # If a variable is entirely missing, it will safely be ignored in the logit calculation.
-        for col in ["air_temp", "wind_speed", "precipitation", "sst", "wave_height", "ocean_current"]:
-            # If the value is completely missing from the Open-Meteo API response:
-            if env_conditions.get(col) is None:
-                if col in df.columns:
-                    # Attempt to fall back to the historical dataset mean for that variable
-                    mean_val = df[col].mean()
-                    # If the entire training column was NaN, fallback to None. Otherwise, use the mean.
-                    env_conditions[col] = None if np.isnan(mean_val) else float(mean_val)
-                else:
+            if days_diff <= 14:
+                update_progress(f"Fetching weather forecast for {target_date}...")
+                env_conditions = await fetch_open_meteo_forecast(lat, lng, target_date)
+                mode = "Forecast (<= 14 days)"
+            else:
+                update_progress(f"Fetching historical average for {target_date}...")
+                env_conditions = await fetch_open_meteo_historical_average(lat, lng, target_date)
+                mode = "Historical Proxy (> 14 days)"
+                
+            update_progress("Predicting encounter probability...")
+            for col in ["air_temp", "wind_speed", "precipitation", "sst", "wave_height", "ocean_current"]:
+                if env_conditions.get(col) is None:
+                    if col in df.columns:
+                        mean_val = df[col].mean()
+                        env_conditions[col] = None if np.isnan(mean_val) else float(mean_val)
+                    else:
+                        env_conditions[col] = None
+                elif isinstance(env_conditions[col], float) and np.isnan(env_conditions[col]):
                     env_conditions[col] = None
-            # If the API returned a value, but the value is NaN:
-            elif isinstance(env_conditions[col], float) and np.isnan(env_conditions[col]):
-                env_conditions[col] = None
-                
-        # Extract model coefficients (weights assigned to each environmental variable)
-        coeffs = model_result.get("coefficients", {})
-        intercept = coeffs.get("intercept", 0.0)
-        logit = intercept
-        
-        # Compute the log-odds (logit) by summing the weighted environmental conditions
-        for var, val in env_conditions.items():
-            if var in coeffs and val is not None:
-                logit += coeffs[var] * val
-                
-        # Convert the log-odds into a probability percentage (0.0 to 1.0) using the sigmoid function
-        prob = 1.0 / (1.0 + np.exp(-logit))
+                    
+            env_conditions["month"] = target.month
+            
+            coeffs = model_result.get("coefficients", {})
+            logit = coeffs.get("intercept", 0.0)
+            for var, val in env_conditions.items():
+                if var in coeffs and val is not None:
+                    logit += coeffs[var] * val
+            prob = 1.0 / (1.0 + np.exp(-logit))
         
         # ---------------------------------------------------------------------
         # STEP 7: AI Interpretation and Finalization
@@ -355,6 +364,7 @@ async def run_prediction_pipeline(task_id: str, species: str, lat: float, lng: f
         update_progress("Generating AI Interpretation...")
         results_data = {
             "encounter_prediction": {
+                "algorithm_method": method,
                 "probability_pct": prob * 100,
                 "mode": mode,
                 "target_date": target_date,
