@@ -374,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // --- 1. DATASET STATS ---
-        if (results.dataset_stats) {
+        if (results.dataset_stats && !results.encounter_prediction) {
             html += `
                 <div class="result-card">
                     <div class="result-card-header">
@@ -394,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // --- SST Validation Warnings ---
-        if (sst_warnings && sst_warnings.length > 0) {
+        if (sst_warnings && sst_warnings.length > 0 && !results.encounter_prediction) {
             html += `
                 <div class="vif-warning">
                     <span class="vif-warning-icon">⚠️</span>
@@ -408,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // --- Correlation Card (Pearson) ---
-        if (correlations?.pearson?.with_presence) {
+        if (correlations?.pearson?.with_presence && !results.encounter_prediction) {
             const rows = Object.entries(correlations.pearson.with_presence)
                 .map(([varName, vals]) => {
                     const c = vals.correlation;
@@ -438,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // --- VIF Card ---
-        if (vif?.scores?.length > 0) {
+        if (vif?.scores?.length > 0 && !results.encounter_prediction) {
             const vifRows = vif.scores.map(s => `
                 <tr>
                     <td>${formatVarName(s.variable)}</td>
@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // --- Model Card ---
-        if (model) {
+        if (model && !results.encounter_prediction) {
             html += renderModelCard(model);
         }
 
