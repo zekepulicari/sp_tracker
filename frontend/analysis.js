@@ -369,6 +369,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <tr><td>Ocean Current</td><td>${pred.conditions_used.ocean_current !== null && pred.conditions_used.ocean_current !== undefined ? pred.conditions_used.ocean_current.toFixed(2) + ' km/h' : 'N/A'}</td></tr>
                         </tbody>
                     </table>
+                    <div style="margin-top: 15px; padding: 12px; background-color: rgba(88, 129, 87, 0.1); border-left: 3px solid var(--color-accent-primary); border-radius: 4px; font-size: 0.8em; line-height: 1.5; color: var(--color-text-main);">
+                        <strong style="color: var(--color-accent-light); display: block; margin-bottom: 4px;">How is this calculated?</strong>
+                        This probability is calculated using a Logistic Regression model trained on historical sightings. The model assigns a mathematical weight (coefficient) to each forecasted environmental condition shown above. These values are multiplied by their respective weights and combined to produce the final probability percentage.
+                    </div>
                 </div>
             `;
         }

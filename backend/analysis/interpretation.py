@@ -57,11 +57,22 @@ def generate_interpretation(species: str, results: dict) -> str:
         model_method = "CCA"
         metrics = {"Explained Variance (CCA1)": model_data.get("explained_variance_ratio", {}).get("CCA1")}
     
+    prediction_info = ""
+    if "encounter_prediction" in results:
+        pred = results["encounter_prediction"]
+        prediction_info = f"""
+# Target Encounter Forecast
+* Target Date: {pred.get("target_date")}
+* Forecasted Probability: {pred.get("probability_pct"):.1f}%
+
+CRITICAL INSTRUCTION: You MUST explicitly state and interpret this {pred.get("probability_pct"):.1f}% forecast probability in your response. Explain if this represents a high or low chance of an encounter on the target date.
+"""
+
     prompt = f"""
 You are an expert ecological data scientist. Your task is to interpret the following statistical analysis results for the species: "{species}".
 The analysis predicts the presence vs absence of this species based on environmental variables.
-
-# Analysis Summary
+{prediction_info}
+# Analysis Summary (Historical Training Data)
 * Sample Size (total records): {stats.get("total_records")}
 * Presence Count: {stats.get("presence_count")}
 * Absence Count: {stats.get("absence_count")}
@@ -69,12 +80,9 @@ The analysis predicts the presence vs absence of this species based on environme
 # Significant Correlations (Spearman)
 {json.dumps(sig_corr, indent=2)}
 
-# Multicollinearity (VIF)
-* Severe collinearity detected? {collinearity}
-
 # Predictive Model
 * Method: {model_method}
-* Metrics: {json.dumps(metrics)}
+* Training Accuracy: {model_data.get("accuracy")}
 * Most Important Variables: {json.dumps(important_vars)}
 
 Write a friendly, simple natural language summary of what these results actually mean. 
@@ -82,7 +90,7 @@ Target audience: Biologists and nature photographers who understand basic ecolog
 Keep it concise, strictly 2-3 short paragraphs.
 Focus on:
 1. Which environmental factors seem to drive the species' presence.
-2. How reliable the model's predictions appear to be based on the metrics.
+2. The final forecast probability for the target date (if provided).
 Do NOT use markdown headers (##), just standard paragraphs. Use bold text for variable names.
     """
 
