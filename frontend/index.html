@@ -106,19 +106,11 @@
                     </div>
                 </div>
 
-                <div class="module-section">
-                    <label class="module-label" for="analysis-method">Model</label>
-                    <select id="analysis-method" class="module-select">
-                        <option value="glm">GLM (Logistic Regression)</option>
-                        <option value="rf">Random Forest</option>
-                        <option value="cca">CCA (Multivariate)</option>
-                    </select>
-                </div>
 
                 <div class="module-section" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(88,129,87,0.3);">
-                    <label class="module-label" style="color: var(--color-accent-primary);">Location-Specific Prediction</label>
+                    <label class="module-label" style="color: var(--color-accent-primary);">Target Prediction</label>
                     <div style="font-size: 0.8em; opacity: 0.8; margin-bottom: 8px;">
-                        Optional: Select a date and location to calculate predictive encounter probabilities based on weather forecasts.
+                        Select a date and location to calculate predictive encounter probabilities based on weather forecasts.
                     </div>
                     
                     <label class="module-label" for="prediction-date">Target Date</label>
@@ -128,7 +120,7 @@
                         <span class="btn-icon">📍</span> Pick Location on Map
                     </button>
                     <div id="prediction-location-display" style="font-size: 0.8em; color: var(--color-accent-primary); font-weight: 600; margin-bottom: 10px; text-align: center; height: 16px;">
-                        No location selected (Global Mode)
+                        No location selected
                     </div>
                 </div>
 
