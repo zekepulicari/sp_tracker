@@ -319,6 +319,8 @@ body, html {
     box-shadow: var(--shadow-panel);
     z-index: 2;
     overflow-y: auto;
+    max-height: 100%;
+    min-height: 0;
 }
 
 /* --- Analysis Header & Persona Badge --- */
@@ -597,19 +599,6 @@ body, html {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    overflow-y: auto;
-    flex: 1;
-}
-
-#analysis-results::-webkit-scrollbar {
-    width: 5px;
-}
-#analysis-results::-webkit-scrollbar-track {
-    background: transparent;
-}
-#analysis-results::-webkit-scrollbar-thumb {
-    background: var(--color-accent-light);
-    border-radius: 99px;
 }
 
 /* Progress Indicator */
