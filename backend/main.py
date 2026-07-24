@@ -40,9 +40,9 @@ def health_check():
 cache = TTLCache(maxsize=100, ttl=3600)
 
 @app.get("/api/observations")
-async def get_observations(nelat: float = None, nelng: float = None, swlat: float = None, swlng: float = None, taxon_id: int = TAXON_ID):
+async def get_observations(nelat: float = None, nelng: float = None, swlat: float = None, swlng: float = None, taxon_id: int = TAXON_ID, has_geo: bool = True):
     # Base URL for iNaturalist observations
-    url = f"https://api.inaturalist.org/v1/observations?taxon_id={taxon_id}&per_page=100"
+    url = f"https://api.inaturalist.org/v1/observations?taxon_id={taxon_id}&per_page=100&has_geo={'true' if has_geo else 'false'}"
     
     # If bounding box is provided
     if nelat and nelng and swlat and swlng:
@@ -51,19 +51,27 @@ async def get_observations(nelat: float = None, nelng: float = None, swlat: floa
     # Check cache
     if url in cache:
         return cache[url]
-        
-    async with httpx.AsyncClient() as client:
-        headers = {}
-        if INATURALIST_API:
-            headers["Authorization"] = f"Bearer {INATURALIST_API}"
-            
-        response = await client.get(url, headers=headers)
-        response.raise_for_status()
-        data = response.json()
-        
-        # Save to cache
-        cache[url] = data
-        return data
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            headers = {}
+            if INATURALIST_API:
+                headers["Authorization"] = f"Bearer {INATURALIST_API}"
+
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+
+            # Save to cache
+            cache[url] = data
+            return data
+
+    except httpx.ConnectTimeout:
+        logger.warning("iNaturalist API timed out for URL: %s", url)
+        raise HTTPException(status_code=504, detail="iNaturalist API timed out. Please try again.")
+    except httpx.HTTPStatusError as e:
+        logger.error("iNaturalist API error %s for URL: %s", e.response.status_code, url)
+        raise HTTPException(status_code=502, detail=f"iNaturalist API error: {e.response.status_code}")
 
 @app.get("/api/species/search")
 async def search_species(q: str):

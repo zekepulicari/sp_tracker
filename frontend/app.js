@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Expose for access by tools.js (point-in-polygon on visible observations)
         window._spMarkersLayer = markersLayer;
 
-        let isLoading = false;
+        let activeObsController = null;
 
         async function updateMapState() {
             const currentZoom = map.getZoom();
@@ -162,8 +162,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         async function fetchObservations() {
-            if (isLoading) return;
-            isLoading = true;
+            // Cancel any in-flight request before starting a new one
+            if (activeObsController) {
+                activeObsController.abort();
+            }
+            activeObsController = new AbortController();
+            const signal = activeObsController.signal;
 
             try {
                 const bounds = map.getBounds();
@@ -172,14 +176,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const swlat = bounds.getSouthWest().lat;
                 const swlng = bounds.getSouthWest().lng;
 
-                const response = await fetch(`/api/observations?nelat=${nelat}&nelng=${nelng}&swlat=${swlat}&swlng=${swlng}&taxon_id=${window.currentTaxonId}`);
+                // Call iNaturalist directly — skips the backend proxy hop for speed
+                const url = `https://api.inaturalist.org/v1/observations` +
+                    `?taxon_id=${window.currentTaxonId}&per_page=100&has_geo=true` +
+                    `&nelat=${nelat}&nelng=${nelng}&swlat=${swlat}&swlng=${swlng}`;
+
+                const response = await fetch(url, { signal });
+
+                // Don't update layers if this request was superseded
+                if (signal.aborted) return;
+
+                if (!response.ok) {
+                    console.warn(`iNaturalist fetch failed (${response.status}). Keeping existing markers.`);
+                    return;
+                }
+
                 const data = await response.json();
 
                 markersLayer.clearLayers();
 
                 if (data.results) {
                     data.results.forEach(obs => {
-                        if (!obs.location) return;
+                        if (!obs.geojson || !obs.geojson.coordinates) return;
 
                         const lat = obs.geojson.coordinates[1];
                         const lng = obs.geojson.coordinates[0];
@@ -215,9 +233,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
                 }
             } catch (e) {
+                if (e.name === 'AbortError') return; // Stale request cancelled — expected
                 console.error("Failed to fetch observations", e);
-            } finally {
-                isLoading = false;
             }
         }
 
