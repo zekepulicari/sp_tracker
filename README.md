@@ -66,6 +66,10 @@ The visual design uses the following color palette:
 - Area selector: <a href="https://www.flaticon.com/free-icons/polygonal" title="polygonal icons">Polygonal icons created by Voysla - Flaticon</a>
 - Ruler: <a href="https://www.flaticon.com/free-icons/ruler" title="ruler icons">Ruler icons created by Freepik - Flaticon</a>
 - Animal Tracks Icon:<a href="https://www.flaticon.com/free-icons/dog" title="dog icons">Dog icons created by Made by Made - Flaticon</a>
+- Purpose target icon: <a href="https://www.flaticon.com/free-icons/objectives" title="objectives icons">Objectives icons created by sonnycandra - Flaticon</a> 
+- Open book icon: <a href="https://www.flaticon.com/free-icons/book" title="book icons">Book icons created by Roundicons Premium - Flaticon</a> 
+- Box resources icon: <a href="https://www.flaticon.com/free-icons/box" title="box icons">Box icons created by Pixel perfect - Flaticon</a>
+- 
 
 ## Weaknesses & Limitations (Predictive Model)
 
@@ -89,3 +93,4 @@ While the encounter prediction model provides a powerful, data-driven approach t
 - [X] Find a way to test if the calculations are right by comparing with real data. Use the 20% of data that was left out to test if the other 80% was calculated correctly. This is not machile learning, we don't have much information to train a model.
 - [ ] In the statistics module we could add a biplot with variables and species. 
 - [ ] Save iNaturalist first-time-searches in local DB. Remember: do not download the images, their size is too big and is unnecesary for the purpose of this project. 
+- [ ] Add loading information abut what calculations are being made when running the analysis.
