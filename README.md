@@ -1,5 +1,53 @@
 ### Instructions
 
+## Prerequisites
+
+- **Python 3.9+**
+- **pip** and **venv**
+- **Docker** and **Docker Compose** (optional, for containerized execution)
+
+---
+
+## Getting Started & Installation
+
+### Option 1: Running Locally (Virtual Environment)
+
+1. **Create and Activate a Python Virtual Environment**:
+   ```bash
+   cd sp_tracker
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+
+2. **Install Required Dependencies**:
+   ```bash
+   pip install -r backend/requirements.txt
+   ```
+   > **Note**: Updating `requirements.txt` does not auto-install dependencies. Always run the `pip install` command after pulling updates to avoid `ModuleNotFoundError`.
+
+3. **Run the Application**:
+   ```bash
+   cd backend
+   uvicorn main:app --reload
+   ```
+
+### Option 2: Running with Docker (Recommended)
+
+The included `Dockerfile` and `docker-compose.yml` eliminate dependency issues by packaging the backend into an isolated container.
+
+1. **Build and Start the Container**:
+   ```bash
+   docker compose up -d --build
+   ```
+   > **Note**: Add `--build --no-cache` if you recently updated `requirements.txt`.
+
+2. **Stop the Container**:
+   ```bash
+   docker compose down
+   ```
+
+---
+
 To use the Species Tracker application, follow these steps:
 
 1. **Launch the Application**: Run the FastAPI server in the `backend` directory using `uvicorn main:app --reload` (or `python3 -m uvicorn main:app --reload`).
