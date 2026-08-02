@@ -26,7 +26,7 @@ def generate_interpretation(species: str, results: dict) -> str:
 
     # Extract dataset stats
     stats = results.get("dataset_stats", {})
-    
+
     # Extract significant correlations
     correlations = results.get("correlations", {}).get("spearman", {}).get("with_presence", {})
     sig_corr = {
@@ -35,62 +35,84 @@ def generate_interpretation(species: str, results: dict) -> str:
 
     # Extract VIF
     vif_data = results.get("vif", {})
-    collinearity = vif_data.get("has_collinearity", False)
-    
+
     # Extract Model
     model_data = results.get("model", {})
     model_method = "Unknown"
-    metrics = {}
     important_vars = {}
-    
+
     if "accuracy" in model_data:
         model_method = "GLM / Logistic Regression"
-        metrics = {"Accuracy": model_data.get("accuracy")}
     elif "oob_score" in model_data:
         model_method = "Random Forest"
-        metrics = {"OOB Score (Accuracy)": model_data.get("oob_score")}
         if "feature_importance" in model_data:
-            # Get top 3 features
             sorted_feats = sorted(model_data["feature_importance"].items(), key=lambda item: item[1], reverse=True)[:3]
             important_vars = {k: round(v, 3) for k, v in sorted_feats}
     elif "explained_variance_ratio" in model_data:
         model_method = "CCA"
-        metrics = {"Explained Variance (CCA1)": model_data.get("explained_variance_ratio", {}).get("CCA1")}
-    
+
+    # Determine algorithm context for tailoring the prompt
+    algorithm_method = results.get("encounter_prediction", {}).get("algorithm_method", "")
+    is_rustic = algorithm_method == "rustic"
+
+    if is_rustic:
+        analysis_context = (
+            "IMPORTANT: This analysis used the 'Rustic (Historical Base Rate)' algorithm. "
+            "This algorithm does NOT use any environmental variables (temperature, wind, SST, etc.). "
+            "It is a seasonality-only model that predicts encounter probability based solely on the "
+            "month of year extracted from historical sighting dates. "
+            "Do NOT mention environmental conditions, weather, or ocean variables — they were not part of this calculation."
+        )
+        focus_instructions = (
+            "1. Explain that this is a baseline seasonality model based on historical sighting frequency by month.\n"
+            "2. Clarify that no weather or environmental data was involved.\n"
+            "3. State the forecast probability and what it means in practical terms."
+        )
+    else:
+        analysis_context = (
+            "This analysis used environmental variables (temperature, wind speed, sea surface temperature, "
+            "wave height, ocean currents, precipitation) to model species presence."
+        )
+        focus_instructions = (
+            "1. Which environmental factors seem to drive the species' presence.\n"
+            "2. The final forecast probability for the target date (if provided)."
+        )
+
     prediction_info = ""
     if "encounter_prediction" in results:
         pred = results["encounter_prediction"]
         prediction_info = f"""
 # Target Encounter Forecast
+* Algorithm Used: {pred.get("algorithm_method")}
+* Mode: {pred.get("mode")}
 * Target Date: {pred.get("target_date")}
 * Forecasted Probability: {pred.get("probability_pct"):.1f}%
 
 CRITICAL INSTRUCTION: You MUST explicitly state and interpret this {pred.get("probability_pct"):.1f}% forecast probability in your response. Explain if this represents a high or low chance of an encounter on the target date.
 """
 
+    correlations_section = "" if is_rustic else f"\n# Significant Correlations (Spearman)\n{json.dumps(sig_corr, indent=2)}\n"
+    important_vars_section = "" if is_rustic else f"\n* Most Important Variables: {json.dumps(important_vars)}"
+
     prompt = f"""
 You are an expert ecological data scientist. Your task is to interpret the following statistical analysis results for the species: "{species}".
-The analysis predicts the presence vs absence of this species based on environmental variables.
+
+{analysis_context}
 {prediction_info}
 # Analysis Summary (Historical Training Data)
 * Sample Size (total records): {stats.get("total_records")}
 * Presence Count: {stats.get("presence_count")}
 * Absence Count: {stats.get("absence_count")}
-
-# Significant Correlations (Spearman)
-{json.dumps(sig_corr, indent=2)}
-
+{correlations_section}
 # Predictive Model
 * Method: {model_method}
-* Training Accuracy: {model_data.get("accuracy")}
-* Most Important Variables: {json.dumps(important_vars)}
+* Training Accuracy: {model_data.get("accuracy")}{important_vars_section}
 
-Write a friendly, simple natural language summary of what these results actually mean. 
+Write a friendly, simple natural language summary of what these results actually mean.
 Target audience: Biologists and nature photographers who understand basic ecology but aren't statisticians.
 Keep it concise, strictly 2-3 short paragraphs.
 Focus on:
-1. Which environmental factors seem to drive the species' presence.
-2. The final forecast probability for the target date (if provided).
+{focus_instructions}
 Do NOT use markdown headers (##), just standard paragraphs. Use bold text for variable names.
     """
 
