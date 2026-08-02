@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Dict, Any, Callable, List
+from typing import Dict, Any, Callable, List, Optional
 import httpx
 import pandas as pd
 import asyncio
@@ -165,7 +165,7 @@ async def fetch_open_meteo_historical_average(lat: float, lng: float, target_dat
             
     return env_data
 
-async def run_prediction_pipeline(task_id: str, species: str, lat: float, lng: float, target_date: str, radius_km: float, limit: int, method: str, analysis_tasks: dict):
+async def run_prediction_pipeline(task_id: str, species: str, taxon_id: Optional[int], lat: float, lng: float, target_date: str, radius_km: float, limit: int, method: str, analysis_tasks: dict):
     """
     Orchestrate the end-to-end local prediction pipeline for a specific geographic coordinate and date.
     
@@ -218,7 +218,7 @@ async def run_prediction_pipeline(task_id: str, species: str, lat: float, lng: f
             }
             
             update_progress(f"Fetching local historical occurrences ({radius_km}km radius)...")
-            occurrences = await fetch_inaturalist_occurrences(species=species, limit=limit, bbox=bbox)
+            occurrences = await fetch_inaturalist_occurrences(species=species, taxon_id=taxon_id, limit=limit, bbox=bbox)
             
             # If we found at least 50 records, we have enough data to stop expanding.
             if len(occurrences) >= 50:

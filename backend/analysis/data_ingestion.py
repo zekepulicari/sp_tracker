@@ -136,6 +136,7 @@ async def fetch_obis_occurrences(
 # ---------------------------------------------------------------------------
 async def fetch_inaturalist_occurrences(
     species: str,
+    taxon_id: Optional[int] = None,
     limit: int = 500,
     bbox: Optional[Dict[str, float]] = None,
 ) -> List[Dict[str, Any]]:
@@ -152,14 +153,27 @@ async def fetch_inaturalist_occurrences(
     page = 1
 
     async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
+        # Resolve taxon_id if not provided
+        if not taxon_id:
+            try:
+                resp = await client.get(f"https://api.inaturalist.org/v1/taxa/autocomplete?q={species}")
+                data = resp.json()
+                if data.get("results") and len(data["results"]) > 0:
+                    taxon_id = data["results"][0]["id"]
+            except Exception as e:
+                logger.warning("Failed to resolve taxon_id for %s: %s", species, e)
+
         while len(records) < limit:
             params: Dict[str, Any] = {
-                "taxon_name": species,
                 "per_page": page_size,
                 "page": page,
                 "quality_grade": "research",  # Ensure high quality data
                 "has[]": "geo" # Must have coordinates
             }
+            if taxon_id:
+                params["taxon_id"] = taxon_id
+            else:
+                params["taxon_name"] = species
             if bbox:
                 params["nelat"] = bbox['max_lat']
                 params["nelng"] = bbox['max_lng']
@@ -438,6 +452,7 @@ def generate_pseudo_absences(
 # ---------------------------------------------------------------------------
 async def build_aligned_dataset(
     species: str,
+    taxon_id: Optional[int] = None,
     limit: int = 500,
     progress_callback=None,
 ) -> Dict[str, Any]:
