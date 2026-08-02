@@ -180,6 +180,7 @@ analysis_tasks = {}
 
 class AnalysisRequest(BaseModel):
     species: str = "Orcinus orca"
+    taxon_id: Optional[int] = None
     method: str = "glm"  # "glm", "rf", or "cca"
     limit: int = 500
     target_lat: Optional[float] = None
@@ -188,7 +189,7 @@ class AnalysisRequest(BaseModel):
     radius_km: Optional[float] = 5.0
 
 
-async def _run_analysis_pipeline(task_id: str, species: str, method: str, limit: int):
+async def _run_analysis_pipeline(task_id: str, species: str, method: str, limit: int, taxon_id: Optional[int] = None):
     """
     Background coroutine that runs the full analysis pipeline and stores
     results in the analysis_tasks dict.
@@ -203,6 +204,7 @@ async def _run_analysis_pipeline(task_id: str, species: str, method: str, limit:
         # Step 1: Build aligned dataset
         dataset = await build_aligned_dataset(
             species=species,
+            taxon_id=taxon_id,
             limit=limit,
             progress_callback=update_progress,
         )
@@ -287,11 +289,11 @@ async def run_analysis(request: AnalysisRequest):
     # Launch the pipeline as an asyncio task
     if request.target_lat is not None and request.target_lng is not None and request.target_date:
         asyncio.create_task(
-            run_prediction_pipeline(task_id, request.species, request.target_lat, request.target_lng, request.target_date, request.radius_km, request.limit, request.method, analysis_tasks)
+            run_prediction_pipeline(task_id, request.species, request.taxon_id, request.target_lat, request.target_lng, request.target_date, request.radius_km, request.limit, request.method, analysis_tasks)
         )
     else:
         asyncio.create_task(
-            _run_analysis_pipeline(task_id, request.species, request.method, request.limit)
+            _run_analysis_pipeline(task_id, request.species, request.method, request.limit, request.taxon_id)
         )
 
     return {"task_id": task_id}

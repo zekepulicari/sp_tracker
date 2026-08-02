@@ -120,13 +120,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const limit   = parseInt(limitSlider?.value || '500', 10);
         const method  = methodSelect?.value || 'glm';
 
-        await runAnalysis(species, method, limit, predictionTarget, tDate);
+        // Ensure the map and taxon ID are synced with the text input if the user didn't click the autocomplete
+        try {
+            const resp = await fetch(`/api/species/search?q=${encodeURIComponent(rawSpecies)}`);
+            const data = await resp.json();
+            if (data.results && data.results.length > 0) {
+                window.currentTaxonId = data.results[0].id;
+                if (window.updateGridLayer) window.updateGridLayer(window.currentTaxonId);
+                if (window.mapInstance) window.mapInstance.fire('moveend');
+            }
+        } catch (e) {
+            console.error("Failed to sync taxon ID", e);
+        }
+
+        const taxon_id = window.currentTaxonId;
+
+        await runAnalysis(species, method, limit, predictionTarget, tDate, taxon_id);
     });
 
     // =========================================================
     // Core: runAnalysis
     // =========================================================
-    async function runAnalysis(species, method, limit, targetLoc, targetDate) {
+    async function runAnalysis(species, method, limit, targetLoc, targetDate, taxon_id) {
         // UI: disable button, show busy status
         setRunning(true);
         renderProgress('Initializing...', 0);
@@ -134,6 +149,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let taskId;
         try {
             const payload = { species, method, limit };
+            if (taxon_id) {
+                payload.taxon_id = taxon_id;
+            }
             if (targetLoc && targetDate) {
                 payload.target_lat = targetLoc.lat;
                 payload.target_lng = targetLoc.lng;
