@@ -19,7 +19,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const speciesInput    = document.getElementById('analysis-species');
     const limitSlider     = document.getElementById('analysis-limit');
     const limitValue      = document.getElementById('limit-value');
-    const methodSelect    = document.getElementById('analysis-method');
+    const methodInput     = document.getElementById('analysis-method');
+    const analysisTabs    = document.querySelectorAll('#analysis-tabs .segmented-tab');
+    const methodDescText  = document.getElementById('method-explanation-text');
+    const methodDocsLink  = document.getElementById('link-method-docs');
+    const targetTitle     = document.getElementById('target-section-title');
+    const targetSubtitle  = document.getElementById('target-section-subtitle');
+    const dateGroup       = document.getElementById('prediction-date-group');
+    const dateLabel       = document.getElementById('prediction-date-label');
     const runBtn          = document.getElementById('btn-run-analysis');
     const resultsArea     = document.getElementById('analysis-results');
     const personaStatus   = document.getElementById('persona-status');
@@ -30,6 +37,72 @@ document.addEventListener('DOMContentLoaded', () => {
     let predictionTarget = null; // {lat, lng}
 
     if (!runBtn || !resultsArea) return; // Guard if panel not present
+
+    // =========================================================
+    // Segmented Tabs & Adaptive Controls
+    // =========================================================
+    const METHOD_CONFIGS = {
+        glm: {
+            desc: "Predicts sighting probability using forecasted sea and weather conditions.",
+            title: "Target Prediction",
+            subtitle: "Select a date and location to calculate predictive encounter probabilities based on weather forecasts.",
+            showDate: true,
+            dateLabel: "Target Date"
+        },
+        rustic: {
+            desc: "Calculates sighting odds based on historical monthly patterns in the selected area.",
+            title: "Seasonal Baseline Target",
+            subtitle: "Select a location and target date (for month) to evaluate historical seasonal occurrence rates.",
+            showDate: true,
+            dateLabel: "Target Date (Month of year)"
+        },
+        rf: {
+            desc: "Ranks the environmental variables that most influence species presence.",
+            title: "Local Habitat Assessment",
+            subtitle: "Select a location on the map to rank which environmental factors matter most for this species.",
+            showDate: false,
+            dateLabel: ""
+        }
+    };
+
+    function selectMethod(methodKey) {
+        if (!METHOD_CONFIGS[methodKey]) return;
+        const cfg = METHOD_CONFIGS[methodKey];
+
+        if (methodInput) methodInput.value = methodKey;
+
+        analysisTabs.forEach(btn => {
+            const isMatch = btn.dataset.method === methodKey;
+            btn.classList.toggle('active', isMatch);
+            btn.setAttribute('aria-selected', isMatch ? 'true' : 'false');
+        });
+
+        if (methodDescText) methodDescText.textContent = cfg.desc;
+        if (targetTitle) targetTitle.textContent = cfg.title;
+        if (targetSubtitle) targetSubtitle.textContent = cfg.subtitle;
+        if (dateGroup) dateGroup.style.display = cfg.showDate ? 'block' : 'none';
+        if (dateLabel) dateLabel.textContent = cfg.dateLabel;
+    }
+
+    analysisTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            selectMethod(tab.dataset.method);
+        });
+    });
+
+    if (methodDocsLink) {
+        methodDocsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            const docsTab = document.querySelector('.nav-tab[data-tab="docs"]');
+            if (docsTab) {
+                docsTab.click();
+                setTimeout(() => {
+                    const el = document.getElementById('doc-methods');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+            }
+        });
+    }
 
     let pollInterval = null;
 
@@ -107,10 +180,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const tDate = dateInput?.value || null;
-        if (!tDate) {
+        const method = methodInput?.value || 'glm';
+        let tDate = dateInput?.value || null;
+
+        if (method !== 'rf' && !tDate) {
             renderError("Please select a target date before running the analysis.");
             return;
+        }
+
+        // If Key Factors (rf), date is not required; default to today's date for backend pipeline compatibility
+        if (method === 'rf' && !tDate) {
+            const today = new Date();
+            tDate = today.toISOString().split('T')[0];
         }
 
         const rawSpecies = speciesInput?.value?.trim() || 'Orcinus orca';
@@ -118,7 +199,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const species = rawSpecies.split('(')[0].trim();
         
         const limit   = parseInt(limitSlider?.value || '500', 10);
-        const method  = methodSelect?.value || 'glm';
 
         // Ensure the map and taxon ID are synced with the text input if the user didn't click the autocomplete
         try {
