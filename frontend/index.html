@@ -94,25 +94,33 @@
                 </div>
 
                 <div class="module-section">
-                    <label class="module-label" for="analysis-method">Analysis Model</label>
-                    <select id="analysis-method" class="module-select">
-                        <option value="glm">GLM (Weather Forecast)</option>
-                        <option value="rustic">Rustic (Historical Base Rate - No Weather)</option>
-                        <option value="rf">Random Forest (Local Importance - No Forecast)</option>
-                    </select>
+                    <label class="module-label">Analysis Mode</label>
+                    <input type="hidden" id="analysis-method" value="glm" />
+                    <div class="segmented-control" id="analysis-tabs" role="tablist">
+                        <button type="button" class="segmented-tab active" data-method="glm" role="tab" aria-selected="true">Forecast</button>
+                        <button type="button" class="segmented-tab" data-method="rustic" role="tab" aria-selected="false">Seasonal</button>
+                        <button type="button" class="segmented-tab" data-method="rf" role="tab" aria-selected="false">Key Factors</button>
+                    </div>
+                    <div id="method-explanation" class="method-explanation">
+                        <span id="method-explanation-text">Predicts sighting probability using forecasted sea and weather conditions.</span>
+                        <a href="#doc-methods" id="link-method-docs" class="method-docs-link">Learn more in Documentation &rarr;</a>
+                    </div>
                 </div>
 
                 <div class="module-section" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(88,129,87,0.3);">
-                    <label class="module-label" style="color: var(--color-accent-primary);">Target Prediction</label>
-                    <div style="font-size: 0.8em; opacity: 0.8; margin-bottom: 8px;">
+                    <label class="module-label" id="target-section-title" style="color: var(--color-accent-primary);">Target Prediction</label>
+                    <div id="target-section-subtitle" style="font-size: 0.8em; opacity: 0.8; margin-bottom: 8px;">
                         Select a date and location to calculate predictive encounter probabilities based on weather forecasts.
                     </div>
                     
-                    <label class="module-label" for="prediction-date">Target Date</label>
-                    <input type="date" id="prediction-date" class="module-input" style="margin-bottom: 10px;" />
+                    <div id="prediction-date-group">
+                        <label class="module-label" for="prediction-date" id="prediction-date-label">Target Date</label>
+                        <input type="date" id="prediction-date" class="module-input" style="margin-bottom: 10px;" />
+                    </div>
                     
                     <button id="btn-pick-location" class="btn-analysis" style="background-color: var(--color-nav-bg); margin-bottom: 5px; opacity: 0.9;">
-                        <span class="btn-icon">📍</span> Pick Location on Map
+                        <svg class="btn-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: middle; margin-right: 6px;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+                        Pick Location on Map
                     </button>
                     <div id="prediction-location-display" style="font-size: 0.8em; color: var(--color-accent-primary); font-weight: 600; margin-bottom: 10px; text-align: center; height: 16px;">
                         No location selected
@@ -120,7 +128,8 @@
                 </div>
 
                 <button id="btn-run-analysis" class="btn-analysis">
-                    <span class="btn-icon">▶</span> Run Analysis
+                    <svg class="btn-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: middle; margin-right: 6px;"><path d="M8 5v14l11-7z"/></svg>
+                    Run Analysis
                 </button>
             </div>
 
@@ -159,6 +168,7 @@
             <p class="docs-subtitle">A simple guide to the statistical methods and models used in Species Tracker.</p>
 
             <ul class="docs-index">
+                <li><a href="#doc-methods">Analysis Modes (Forecast, Seasonal, Key Factors)</a></li>
                 <li><a href="#doc-correlation">Correlation (Pearson & Spearman)</a></li>
                 <li><a href="#doc-vif">Multicollinearity (VIF)</a></li>
                 <li><a href="#doc-glm">Generalized Linear Model (GLM)</a></li>
@@ -167,6 +177,22 @@
             </ul>
 
             <div class="docs-content">
+                <div class="docs-section" id="doc-methods">
+                    <h2>Analysis Modes: Forecast, Seasonal & Key Factors</h2>
+                    <span class="docs-badge">Prediction Modes</span>
+                    <ul>
+                        <li><strong>Forecast Mode (GLM Logistic Regression):</strong>
+                            Combines marine and atmospheric forecasts from the Open-Meteo API (sea surface temperature, wind speed, wave height, air temperature, ocean currents) with a Logistic Regression model trained on local historical sightings and pseudo-absence records. It produces a probability percentage for your exact target date and geographic coordinate.
+                        </li>
+                        <li><strong>Seasonal Mode (Historical Occurrence Baseline):</strong>
+                            Calculates sighting likelihood based strictly on historical encounter frequency for the chosen calendar month within the local radius. This mode deliberately omits weather forecasts, serving as an empirical baseline to measure whether atmospheric conditions predict sightings better than historical seasonality alone.
+                        </li>
+                        <li><strong>Key Factors Mode (Random Forest Feature Importance):</strong>
+                            Trains an ensemble of decision trees on local presence and pseudo-absence data to determine which environmental dimensions exert the greatest ecological influence over the species in that area. Rather than a future forecast, it computes normalized variable importance metrics ranking factors such as temperature, ocean currents, and wind.
+                        </li>
+                    </ul>
+                </div>
+
                 <div class="docs-section" id="doc-correlation">
                     <h2>Correlation (Pearson & Spearman)</h2>
                     <span class="docs-badge">Exploratory Analysis</span>
@@ -272,9 +298,9 @@
                     <a href="https://leafletjs.com/" target="_blank" rel="noopener noreferrer">leafletjs.com ↗</a>
                 </li>
                 <li>
-                    <span class="resource-name">CARTO Basemaps</span>
-                    <span class="resource-desc">— Light basemap tiles for the default map layer</span>
-                    <a href="https://carto.com/basemaps/" target="_blank" rel="noopener noreferrer">carto.com ↗</a>
+                    <span class="resource-name">OpenStreetMap</span>
+                    <span class="resource-desc">— Standard basemap tiles for the default map layer</span>
+                    <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener noreferrer">openstreetmap.org ↗</a>
                 </li>
                 <li>
                     <span class="resource-name">Esri World Imagery</span>
