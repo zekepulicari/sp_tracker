@@ -301,7 +301,6 @@ async def run_prediction_pipeline(task_id: str, species: str, taxon_id: Optional
         # ---------------------------------------------------------------------
         update_progress(f"Fitting local predictive model ({method})...")
         if method == "rf":
-            from backend.analysis.probability_model import fit_random_forest
             model_result = fit_random_forest(df)
         else:
             # Rustic uses GLM (but with only the month predictor)

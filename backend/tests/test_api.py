@@ -82,3 +82,19 @@ def test_observations_within_rejects_invalid_body():
     """POST /api/observations/within with missing polygon should return 422."""
     response = client.post("/api/observations/within", json={})
     assert response.status_code == 422
+
+
+def test_analysis_run_envelope_creates_task():
+    """POST /api/analysis/run with method=envelope and polygon should return task_id."""
+    payload = {
+        "species": "Orcinus orca",
+        "method": "envelope",
+        "target_date": "2026-08-01",
+        "polygon": SAMPLE_POLYGON,
+        "limit": 100
+    }
+    response = client.post("/api/analysis/run", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "task_id" in data
+

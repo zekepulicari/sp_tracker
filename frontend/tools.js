@@ -447,6 +447,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const turfPolygon = turf.polygon([ring]);
             const areaSqMeters = turf.area(turfPolygon);
 
+            window._spActivePolygon = { type: 'Polygon', coordinates: [ring], areaSqMeters };
+            window.dispatchEvent(new CustomEvent('sp:polygon-updated', { detail: window._spActivePolygon }));
+
             // Draw the solid polygon on the map
             const polygon = L.polygon(
                 this._vertices.map(v => [v.lat, v.lng]),

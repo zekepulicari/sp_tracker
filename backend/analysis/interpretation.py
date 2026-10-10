@@ -24,6 +24,40 @@ def generate_interpretation(species: str, results: dict) -> str:
     if not GEMINI_KEY:
         return "AI interpretation is currently disabled (API key missing)."
 
+    if results.get("analysis_type") == "niche_envelope":
+        viability = results.get("viability", {})
+        score = viability.get("viability_score", 0.0)
+        status = viability.get("status", "Unknown")
+        limiting = viability.get("limiting_factors", [])
+        breakdown = viability.get("parameter_breakdown", {})
+        
+        prompt = f"""
+You are an expert ecological data scientist. Your task is to interpret the following Area Ecological Niche Envelope analysis for the species "{species}" on target date {results.get("target_date")}.
+
+# Analysis Summary
+* Total Historical Sightings in Area: {results.get("total_observations_in_area")}
+* Overall Habitat Viability: {score:.1f}% ({status})
+* Limiting Factors: {json.dumps(limiting, indent=2)}
+* Environmental Envelope vs Forecast: {json.dumps(breakdown, indent=2)}
+
+Write a friendly, simple natural language summary of what these results mean for this geographic area.
+Target audience: Biologists and nature observers who understand basic ecology but aren't statisticians.
+Keep it concise, strictly 2-3 short paragraphs.
+Focus on:
+1. Explain the overall habitat viability ({score:.1f}% - {status}) on {results.get("target_date")}.
+2. Highlight which environmental factors are optimal vs. any limiting conditions that may reduce species presence.
+3. Offer practical ecological guidance for this area.
+Do NOT use markdown headers (##), just standard paragraphs. Use bold text for variable names.
+"""
+        try:
+            model = genai.GenerativeModel('gemini-3.1-flash-lite')
+            response = model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as exc:
+            logger.error(f"Failed to generate AI interpretation: {exc}")
+            lim_msg = f" Limiting factor(s): {', '.join(f['variable'] for f in limiting)}." if limiting else " All environmental parameters are within optimal bounds."
+            return f"Habitat viability for {species} across this area on {results.get('target_date')} is estimated at {score:.1f}% ({status}).{lim_msg}"
+
     # Extract dataset stats
     stats = results.get("dataset_stats", {})
 

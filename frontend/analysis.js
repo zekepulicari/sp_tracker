@@ -62,6 +62,14 @@ document.addEventListener('DOMContentLoaded', () => {
             subtitle: "Select a location on the map to rank which environmental factors matter most for this species.",
             showDate: false,
             dateLabel: ""
+        },
+        envelope: {
+            desc: "Assesses future habitat viability across an entire drawn area (AOI) based on species tolerance bounds.",
+            title: "Area Ecological Envelope",
+            subtitle: "Draw a polygon on the map using the Area Tool (>2 points) and pick a target date to assess habitat viability.",
+            showDate: true,
+            dateLabel: "Target Forecast Date",
+            isArea: true
         }
     };
 
@@ -82,6 +90,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetSubtitle) targetSubtitle.textContent = cfg.subtitle;
         if (dateGroup) dateGroup.style.display = cfg.showDate ? 'block' : 'none';
         if (dateLabel) dateLabel.textContent = cfg.dateLabel;
+
+        if (cfg.isArea) {
+            if (pickLocBtn) {
+                pickLocBtn.innerHTML = '<span class="btn-icon">📐</span> Draw Area with Area Tool';
+            }
+            if (locDisplay) {
+                if (window._spActivePolygon) {
+                    const sqKm = (window._spActivePolygon.areaSqMeters / 1_000_000).toFixed(2);
+                    locDisplay.textContent = `Area Selected: ${sqKm} km²`;
+                } else {
+                    locDisplay.textContent = 'No area drawn yet';
+                }
+            }
+        } else {
+            if (pickLocBtn) {
+                pickLocBtn.innerHTML = '<span class="btn-icon">📍</span> Pick Location on Map';
+            }
+            if (locDisplay) {
+                locDisplay.textContent = predictionTarget ? `Lat: ${predictionTarget.lat.toFixed(4)}, Lng: ${predictionTarget.lng.toFixed(4)}` : 'No location selected';
+            }
+        }
     }
 
     analysisTabs.forEach(tab => {
@@ -123,6 +152,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (pickLocBtn) {
         pickLocBtn.addEventListener('click', () => {
+            if (methodInput?.value === 'envelope') {
+                const areaBtn = document.getElementById('tool-area');
+                if (areaBtn) {
+                    areaBtn.click();
+                } else {
+                    alert('Area measurement tool not found on map.');
+                }
+                return;
+            }
+
             if (!window._spMap) {
                 alert('Map is not initialized.');
                 return;
@@ -139,6 +178,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 window._spMap.getContainer().style.cursor = 'crosshair';
                 pickLocBtn.innerHTML = '<span class="btn-icon">❌</span> Cancel Picking';
                 pickLocBtn.classList.add('running');
+            }
+        });
+
+        window.addEventListener('sp:polygon-updated', (e) => {
+            const poly = e.detail;
+            if (poly && methodInput?.value === 'envelope' && locDisplay) {
+                const sqKm = (poly.areaSqMeters / 1_000_000).toFixed(2);
+                locDisplay.textContent = `Area Selected: ${sqKm} km² (${poly.coordinates[0].length - 1} pts)`;
             }
         });
 
@@ -175,12 +222,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Run Button
     // =========================================================
     runBtn.addEventListener('click', async () => {
-        if (!predictionTarget) {
+        const method = methodInput?.value || 'glm';
+        if (method === 'envelope') {
+            if (!window._spActivePolygon) {
+                renderError("Please use the Area Tool on the map to draw a polygon (>2 points) before running the analysis.");
+                return;
+            }
+        } else if (!predictionTarget) {
             renderError("Please click on the map to select a target location before running the analysis.");
             return;
         }
 
-        const method = methodInput?.value || 'glm';
         let tDate = dateInput?.value || null;
 
         if (method !== 'rf' && !tDate) {
@@ -232,7 +284,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (taxon_id) {
                 payload.taxon_id = taxon_id;
             }
-            if (targetLoc && targetDate) {
+            if (method === 'envelope') {
+                payload.polygon = window._spActivePolygon;
+                payload.target_date = targetDate;
+            } else if (targetLoc && targetDate) {
                 payload.target_lat = targetLoc.lat;
                 payload.target_lng = targetLoc.lng;
                 payload.target_date = targetDate;
@@ -350,6 +405,11 @@ document.addEventListener('DOMContentLoaded', () => {
         { key: 'Fitting',            label: 'Fitting model',                    icon: '🧮' },
         { key: 'Training',           label: 'Training Random Forest',           icon: '🌳' },
         { key: 'Running',            label: 'Running CCA',                      icon: '🔬' },
+        { key: 'Deriving area',      label: 'Deriving area centroid & bounds',  icon: '📐' },
+        { key: 'Retrieving occurrences', label: 'Retrieving sightings in area', icon: '📍' },
+        { key: 'Sampling environmental', label: 'Sampling environmental data',  icon: '🌊' },
+        { key: 'Computing ecological', label: 'Computing ecological envelope',  icon: '📊' },
+        { key: 'Evaluating habitat', label: 'Evaluating habitat viability',     icon: '🎯' },
         { key: 'Generating AI',      label: 'Generating AI Interpretation',     icon: '✨' },
         { key: 'Analysis complete',  label: 'Analysis complete!',               icon: '🎉' },
     ];
@@ -359,14 +419,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const msg = message.toLowerCase();
         if (msg.includes('complete')) return 100;
         if (msg.includes('generating ai')) return 95;
+        if (msg.includes('evaluating habitat')) return 88;
         if (msg.includes('fitting') || msg.includes('training') || msg.includes('running cca')) return 88;
+        if (msg.includes('computing ecological')) return 78;
         if (msg.includes('vif') || msg.includes('multicollinearity')) return 78;
         if (msg.includes('correlation')) return 70;
         if (msg.includes('building') || msg.includes('dataset ready')) return 62;
+        if (msg.includes('sampling environmental')) return 52;
         if (msg.includes('processing environmental')) return 52;
         if (msg.includes('fetching environmental')) return 40;
+        if (msg.includes('retrieving occurrences')) return 30;
         if (msg.includes('generating')) return 28;
         if (msg.includes('retrieved') || msg.includes('obis records')) return 20;
+        if (msg.includes('deriving area')) return 15;
         if (msg.includes('fetching') || msg.includes('obis')) return 12;
         return 5;
     }
@@ -427,6 +492,85 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
+        }
+
+        // --- HABITAT VIABILITY / AREA ENVELOPE CARD (if exists) ---
+        if (results.analysis_type === 'niche_envelope' && results.viability) {
+            const v = results.viability;
+            let statusColor = 'var(--color-success)';
+            if (v.status === 'Unsuitable') statusColor = 'var(--color-danger)';
+            else if (v.status === 'Suboptimal') statusColor = 'var(--color-warning)';
+
+            html += `
+                <div class="result-card" style="border-left: 4px solid ${statusColor}; margin-bottom: 20px;">
+                    <div class="result-card-header" style="justify-content: space-between;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="result-card-icon">🗺️</span>
+                            <span class="result-card-title">Habitat Viability Index</span>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.4em; font-weight: 800; color: ${statusColor};">${v.viability_score.toFixed(1)}%</div>
+                            <span class="docs-badge" style="background:${statusColor}; color:#fff; font-size:0.75em; padding:2px 8px; border-radius:12px;">${v.status}</span>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.85em; opacity: 0.9; margin-bottom: 12px; line-height: 1.4;">
+                        Target Date: <strong>${results.target_date}</strong><br>
+                        Area Centroid: ${results.centroid.lat.toFixed(4)}, ${results.centroid.lng.toFixed(4)}<br>
+                        Sightings Analyzed in Area: <strong>${results.total_observations_in_area}</strong>
+                    </div>
+            `;
+
+            if (v.limiting_factors && v.limiting_factors.length > 0) {
+                html += `
+                    <div style="margin-bottom: 12px; padding: 10px; background-color: rgba(230, 57, 70, 0.15); border-left: 3px solid var(--color-danger); border-radius: 4px; font-size: 0.82em;">
+                        <strong style="color: var(--color-danger); display: block; margin-bottom: 4px;">⚠️ Limiting Environmental Factors</strong>
+                        ${v.limiting_factors.map(f => `<div>• <strong>${f.variable}</strong>: ${f.reason}</div>`).join('')}
+                    </div>
+                `;
+            }
+
+            html += `
+                <div style="font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-accent-light); opacity: 0.85; margin-bottom: 6px;">
+                    Environmental Niche vs Forecast
+                </div>
+                <table class="correlation-table" style="font-size: 0.82em; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;">Variable</th>
+                            <th style="text-align:right;">Forecast</th>
+                            <th style="text-align:center;">Optimum (P10–P90)</th>
+                            <th style="text-align:right;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            for (const [varName, info] of Object.entries(v.parameter_breakdown || {})) {
+                const label = varName === 'sst' ? 'Sea Surface Temp (°C)'
+                    : varName === 'wind_speed' ? 'Wind Speed (km/h)'
+                    : varName === 'wave_height' ? 'Wave Height (m)'
+                    : varName === 'ocean_current' ? 'Ocean Current (km/h)' : varName;
+                const env = info.envelope;
+                const valStr = info.forecast_value !== null && info.forecast_value !== undefined ? info.forecast_value.toFixed(1) : 'N/A';
+                const optStr = `${env.p10.toFixed(1)} – ${env.p90.toFixed(1)}`;
+                html += `
+                    <tr>
+                        <td style="text-align:left;"><strong>${label}</strong></td>
+                        <td style="text-align:right;">${valStr}</td>
+                        <td style="text-align:center;">${optStr}</td>
+                        <td style="text-align:right;"><span style="font-size:0.9em; opacity:0.9;">${info.status}</span></td>
+                    </tr>
+                `;
+            }
+
+            html += `
+                    </tbody>
+                </table>
+                <div style="margin-top: 15px; padding: 12px; background-color: rgba(88, 129, 87, 0.1); border-left: 3px solid var(--color-accent-primary); border-radius: 4px; font-size: 0.8em; line-height: 1.5; color: var(--color-text-main);">
+                    <strong style="color: var(--color-accent-light); display: block; margin-bottom: 4px;">How does Area Envelope Analysis work?</strong>
+                    This analysis extracts empirical statistical bounds (10th to 90th percentile) for key environmental parameters from historical occurrences inside your selected polygon. It then compares the target date's weather forecast at the area's centroid against these limits to predict ecological suitability.
+                </div>
+            </div>`;
         }
 
         // --- ENCOUNTER PREDICTION CARD (if exists) ---
