@@ -71,26 +71,67 @@ To use the Species Tracker application, follow these steps:
 
 ### Ecological Analysis Module
 
-The analysis module implements a full Species Distribution Modeling (SDM) pipeline:
+The analysis module implements a full Species Distribution Modeling (SDM) and Ecological Niche Modeling pipeline with four distinct analysis modes:
+
+#### 1. Analysis Modes Overview
+
+| Analysis Mode | Selection Type | Core Objective | Key Output | Speed |
+| :--- | :--- | :--- | :--- | :--- |
+| **Forecast Mode (`glm`)** | Single Point + Target Date | Predicts encounter probability using future marine & atmospheric forecasts. | Encounter Probability (%) + Forecasted Conditions | ~3–5 min |
+| **Seasonal Mode (`rustic`)** | Single Point + Target Month | Calculates baseline sighting odds based purely on historical monthly occurrences. | Baseline Seasonal Probability (%) | ~3–5 sec |
+| **Key Factors (`rf`)** | Single Point (Local Area) | Discovers which environmental variables exert the strongest ecological influence. | Normalized Variable Importance (%) | ~3–5 min |
+| **Area Envelope (`envelope`)** | Area Polygon (>2 pts) + Date | Evaluates whether forecasted conditions across an area match species tolerance bounds. | Habitat Viability Index (%) + Limiting Factors | ~3–5 sec |
+
+---
+
+#### 2. Detailed Mode Specifications & Variables Used
+
+##### Mode 1: Forecast Mode (Logistic GLM)
+- **Methodology**: Gathers local occurrences within a dynamic 5–50 km radius, generates pseudo-absences, and trains a Logistic Regression Generalized Linear Model ($P(Y=1) = \frac{1}{1 + e^{-(\beta_0 + \sum \beta_i X_i)}}$). It retrieves the Open-Meteo forecast for your target date and calculates sighting probability.
+- **Variables Used**:
+  - `sst` (**Sea Surface Temperature**) [°C] — Open-Meteo Marine API
+  - `wind_speed` (**10m Wind Speed**) [km/h] — Open-Meteo Weather Archive/Forecast
+  - `air_temp` (**2m Air Temperature**) [°C] — Open-Meteo Weather Archive/Forecast
+  - `precipitation` (**Precipitation**) [mm] — Open-Meteo Weather Archive/Forecast
+  - `wave_height` (**Wave Height**) [m] — Open-Meteo Marine API
+  - `ocean_current` (**Ocean Current Velocity**) [km/h] — Open-Meteo Marine API
+  - `month` (**Month of the Year**) [1–12] — Temporal cycle
+
+##### Mode 2: Seasonal Baseline Mode (Rustic Historical Base Rate)
+- **Methodology**: Deliberately omits weather and marine forecasts to establish an empirical baseline. Evaluates historical sighting frequency for the specified calendar month within the local search radius.
+- **Variables Used**:
+  - `month` (**Month of the Year**) [1–12] — Historical seasonality.
+
+##### Mode 3: Key Factors Mode (Random Forest Feature Importance)
+- **Methodology**: Trains an ensemble of 200 Decision Trees (Random Forest) on presence and pseudo-absence records within the local area. Calculates normalized Gini feature importance (Mean Decrease in Impurity) to rank variables from most to least influential. Does not depend on a future forecast date.
+- **Variables Used**:
+  - `sst` [°C], `wind_speed` [km/h], `air_temp` [°C], `precipitation` [mm], `wave_height` [m], `ocean_current` [km/h], `month` [1–12].
+
+##### Mode 4: Area Envelope Mode (Area of Interest Ecological Niche Envelope)
+- **Methodology**: Designed for polygon selections ($>2$ vertices) on the map. Extracts empirical tolerance bounds (10th to 90th percentile optimum range, plus min/max limits) from historical sightings inside the polygon. Queries the Open-Meteo forecast for the area's centroid on the target date, scores overall habitat viability (0–100%), and flags limiting environmental factors.
+- **Variables Used**:
+  - `sst` [°C] — Sea surface temperature evaluated against species optimum range.
+  - `wind_speed` [km/h] — Evaluates surface roughness and wind limits.
+  - `wave_height` [m] — Compares swell intensity against tolerable limits.
+  - `ocean_current` [km/h] — Evaluates hydrodynamic drift tolerances.
+
+---
 
 **Data Sources (all free, no API key required except Gemini):**
+- **iNaturalist API** (`api.inaturalist.org/v1`) — Species search & localized observation records
 - **OBIS API** (`api.obis.org/v3`) — Historical marine species occurrence records
 - **Open-Meteo Historical** (`archive-api.open-meteo.com`) — Hourly temperature, wind speed/direction (back to 1940)
 - **Open-Meteo Marine** (`marine-api.open-meteo.com`) — Sea surface temperature, wave height, ocean current velocity
+- **Open-Meteo Forecast** (`api.open-meteo.com/v1/forecast`) — Weather & marine forecasts up to 14 days
 - **Gemini API** (`gemini-3.1-flash-lite`) — Natural language analysis explanation (requires `GEMINI_KEY` in `.env`)
 
-**Pipeline:**
-1. Fetch occurrence records from OBIS
-2. Generate pseudo-absence (background) points for valid SDM training
-3. Fetch Open-Meteo environmental data for all points (presence + pseudo-absence)
-4. Validate SST: cross-check Open-Meteo SST vs OBIS pre-computed SST (warn if Δ > 2°C)
-5. Compute Pearson & Spearman correlation matrices with p-values
-6. Check Variance Inflation Factor (VIF) for multicollinearity
-7. Fit selected model (GLM / Random Forest / CCA) with 80/20 train/test split
-8. Generate a natural language **AI interpretation** summarizing the results
-9. Return encounter probability, AI interpretation, and model metrics
-
-**Backend modules:** `backend/analysis/data_ingestion.py`, `correlation.py`, `probability_model.py`, `interpretation.py`
+**Backend modules:**
+- `backend/analysis/data_ingestion.py` — Ingestion & pseudo-absence generation
+- `backend/analysis/correlation.py` — Correlation & VIF multicollinearity
+- `backend/analysis/probability_model.py` — GLM, Random Forest, & CCA model training
+- `backend/analysis/prediction.py` — Localized point prediction & forecasting pipeline
+- `backend/analysis/niche_envelope.py` — Area of Interest (AOI) ecological niche envelope pipeline
+- `backend/analysis/interpretation.py` — Gemini AI ecological interpretation synthesis
 
 ---
 
