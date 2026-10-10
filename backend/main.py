@@ -16,6 +16,7 @@ from analysis.data_ingestion import build_aligned_dataset, RateLimitError
 from analysis.correlation import compute_correlations, compute_vif
 from analysis.probability_model import fit_glm, fit_random_forest, fit_cca
 from analysis.prediction import run_prediction_pipeline
+from analysis.niche_envelope import run_niche_envelope_pipeline
 from analysis.interpretation import generate_interpretation
 
 logging.basicConfig(level=logging.INFO)
@@ -181,12 +182,13 @@ analysis_tasks = {}
 class AnalysisRequest(BaseModel):
     species: str = "Orcinus orca"
     taxon_id: Optional[int] = None
-    method: str = "glm"  # "glm", "rf", or "cca"
+    method: str = "glm"  # "glm", "rf", "cca", "rustic", or "envelope"
     limit: int = 500
     target_lat: Optional[float] = None
     target_lng: Optional[float] = None
     target_date: Optional[str] = None
     radius_km: Optional[float] = 5.0
+    polygon: Optional[GeoJSONPolygon] = None
 
 
 async def _run_analysis_pipeline(task_id: str, species: str, method: str, limit: int, taxon_id: Optional[int] = None):
@@ -287,7 +289,19 @@ async def run_analysis(request: AnalysisRequest):
     }
 
     # Launch the pipeline as an asyncio task
-    if request.target_lat is not None and request.target_lng is not None and request.target_date:
+    if request.method == "envelope" and request.polygon and request.target_date:
+        asyncio.create_task(
+            run_niche_envelope_pipeline(
+                task_id,
+                request.species,
+                request.taxon_id,
+                request.polygon.coordinates[0],
+                request.target_date,
+                request.limit,
+                analysis_tasks
+            )
+        )
+    elif request.target_lat is not None and request.target_lng is not None and request.target_date:
         asyncio.create_task(
             run_prediction_pipeline(task_id, request.species, request.taxon_id, request.target_lat, request.target_lng, request.target_date, request.radius_km, request.limit, request.method, analysis_tasks)
         )
