@@ -46,9 +46,6 @@
                 <button id="tool-ruler" class="map-tool-btn" title="Measure distance (2 points)" aria-label="Ruler tool">
                     <img src="/resources/images/ruler_icon.png" alt="Ruler" width="22" height="22">
                 </button>
-                <button id="tool-area"  class="map-tool-btn" title="Measure area (polygon)"      aria-label="Area tool">
-                    <img src="/resources/images/area_selector_icon.png" alt="Select area" width="22" height="22">
-                </button>
             </div>
         </main>
         <aside id="assistant-panel">
@@ -98,9 +95,8 @@
                     <input type="hidden" id="analysis-method" value="glm" />
                     <div class="segmented-control" id="analysis-tabs" role="tablist">
                         <button type="button" class="segmented-tab active" data-method="glm" role="tab" aria-selected="true">Forecast</button>
-                        <button type="button" class="segmented-tab" data-method="rustic" role="tab" aria-selected="false">Seasonal</button>
+                        <button type="button" class="segmented-tab" data-method="rustic" role="tab" aria-selected="false">Historical Profile</button>
                         <button type="button" class="segmented-tab" data-method="rf" role="tab" aria-selected="false">Key Factors</button>
-                        <button type="button" class="segmented-tab" data-method="envelope" role="tab" aria-selected="false">Area Envelope</button>
                     </div>
                     <div id="method-explanation" class="method-explanation">
                         <span id="method-explanation-text">Predicts sighting probability using forecasted sea and weather conditions.</span>
@@ -169,7 +165,7 @@
             <p class="docs-subtitle">A simple guide to the statistical methods and models used in Species Tracker.</p>
 
             <ul class="docs-index">
-                <li><a href="#doc-methods">Analysis Modes (Forecast, Seasonal, Key Factors, Area Envelope)</a></li>
+                <li><a href="#doc-methods">Analysis Modes (Forecast, Historical Profile, Key Factors)</a></li>
                 <li><a href="#doc-correlation">Correlation (Pearson & Spearman)</a></li>
                 <li><a href="#doc-vif">Multicollinearity (VIF)</a></li>
                 <li><a href="#doc-glm">Generalized Linear Model (GLM)</a></li>
@@ -182,7 +178,7 @@
                     <h2>Analysis Modes: Methods, Variables & Calculations</h2>
                     <span class="docs-badge">Comprehensive Guide</span>
                     <p style="margin-bottom: 12px; font-size: 0.9em; opacity: 0.9;">
-                        The application offers four distinct statistical and machine learning modes to analyze species occurrence data. Each mode serves a unique ecological purpose:
+                        The application offers three distinct statistical and machine learning modes to analyze species occurrence data. Each mode serves a unique ecological purpose:
                     </p>
                     <ul>
                         <li>
@@ -201,7 +197,7 @@
                             </ul>
                         </li>
                         <li>
-                            <strong>2. Seasonal Baseline Mode (Rustic Historical Base Rate):</strong>
+                            <strong>2. Historical Profile Mode (Rustic Historical Base Rate):</strong>
                             <p><strong>Goal:</strong> Provides an empirical seasonal baseline to test whether weather forecasts predict presence better than historical monthly seasonality alone.</p>
                             <p><strong>Calculation:</strong> Deliberately excludes all atmospheric and oceanic forecasts. Fits a logistic baseline model using only the target calendar month derived from historical sightings in the local search radius.</p>
                             <p><strong>Variables Used:</strong></p>
@@ -224,13 +220,6 @@
                                 <li><strong>Month of the Year</strong> [1–12]</li>
                             </ul>
                         </li>
-                        <li>
-                            <strong>4. Area Envelope Mode (Area of Interest Ecological Niche Envelope):</strong>
-                            <p><strong>Goal:</strong> Evaluates future habitat viability across an entire drawn polygon area (&gt;2 points) without the multi-minute latency of point-by-point scraping.</p>
-                            <p><strong>Calculation:</strong> Extracts empirical tolerance bounds (10th to 90th percentile optimum range, plus min/max limits) from historical observations inside the polygon. Fetches the weather and marine forecast for the area's centroid on the target date, scores overall habitat viability (0–100%), classifies status (Optimal, Favorable, Suboptimal, Unsuitable), and flags limiting factors exceeding species tolerances.</p>
-                            <p><strong>Variables Used:</strong></p>
-                            <ul style="margin-top: 4px; margin-bottom: 8px;">
-                                <li><strong>Sea Surface Temperature (SST)</strong> [°C] — Evaluates water temperature vs. species optimum</li>
                                 <li><strong>10m Wind Speed</strong> [km/h] — Flags adverse surface turbulence or gales</li>
                                 <li><strong>Wave Height</strong> [m] — Compares swell intensity against tolerable limits</li>
                                 <li><strong>Ocean Current Velocity</strong> [km/h] — Evaluates hydrodynamic drift tolerances</li>
