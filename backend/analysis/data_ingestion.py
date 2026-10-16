@@ -1,573 +1,174 @@
-"""
-data_ingestion.py — Fetch & align species occurrence + environmental data.
-
-Data sources:
-  - OBIS API (species occurrences)
-  - Open-Meteo Archive API (historical weather: temperature, wind)
-  - Open-Meteo Marine API (SST, wave height, ocean currents)
-
-The module fetches occurrence records, generates pseudo-absence background
-points, retrieves environmental conditions for every point from Open-Meteo,
-and returns a single aligned Pandas DataFrame ready for statistical analysis.
-"""
-
+"""Historical sightings and environmental data, with explicit completeness."""
 import asyncio
-import random
-import logging
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Any
+from datetime import date, datetime, timedelta, timezone
+from cachetools import TTLCache
+from analysis.features import FEATURES, ENVIRONMENTS, aggregate
+from analysis.geo import distance_km
+from upstream import gateway, UpstreamError
 
-import httpx
-import numpy as np
-import pandas as pd
-
-logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-OBIS_API_BASE = "https://api.obis.org/v3/occurrence"
-OPEN_METEO_ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
-OPEN_METEO_MARINE = "https://marine-api.open-meteo.com/v1/marine"
-
-# Maximum divergence (°C) between OBIS SST and Open-Meteo SST before warning
-SST_DIVERGENCE_THRESHOLD = 2.0
-
-# Timeout for individual API requests (seconds)
-API_TIMEOUT = 30.0
-
-# Maximum concurrent Open-Meteo requests (stay well under 600/min limit)
-MAX_CONCURRENT_REQUESTS = 10
+INAT = 'https://api.inaturalist.org/v1'
+WEATHER_ARCHIVE = 'https://archive-api.open-meteo.com/v1/archive'
+WEATHER_FORECAST = 'https://api.open-meteo.com/v1/forecast'
+MARINE = 'https://marine-api.open-meteo.com/v1/marine'
+env_cache = TTLCache(maxsize=10000, ttl=86400)
 
 
-# ---------------------------------------------------------------------------
-# Exceptions
-# ---------------------------------------------------------------------------
-class RateLimitError(Exception):
-    """Raised when an API returns HTTP 429 (Too Many Requests)."""
-    pass
+def evidence_window(today=None):
+    today = today or date.today()
+    end = today - timedelta(days=1)
+    try:
+        start = today.replace(year=today.year - 10)
+    except ValueError:
+        start = today.replace(year=today.year - 10, day=28)
+    return start, end
 
 
-# ---------------------------------------------------------------------------
-# OBIS: Species Occurrence Fetching
-# ---------------------------------------------------------------------------
-async def fetch_obis_occurrences(
-    species: str,
-    limit: int = 500,
-    bbox: Optional[Dict[str, float]] = None,
-) -> List[Dict[str, Any]]:
-    """
-    Fetch historical species occurrence records from the OBIS API.
-
-    :param species: Scientific name, e.g. "Orcinus orca".
-    :param limit: Maximum number of records to retrieve.
-    :param bbox: Optional bounding box dict {min_lng, min_lat, max_lng, max_lat}.
-    :returns: List of dicts with keys: lat, lng, date, obis_sst, obis_sss.
-    """
-    records: List[Dict[str, Any]] = []
-    page_size = min(limit, 1000)  # OBIS max page size is 1000
-    offset = 0
-
-    async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
-        while len(records) < limit:
-            params: Dict[str, Any] = {
-                "scientificname": species,
-                "size": page_size,
-                "offset": offset,
-            }
-            if bbox:
-                params["geometry"] = (
-                    f"POLYGON(({bbox['min_lng']} {bbox['min_lat']},"
-                    f"{bbox['max_lng']} {bbox['min_lat']},"
-                    f"{bbox['max_lng']} {bbox['max_lat']},"
-                    f"{bbox['min_lng']} {bbox['max_lat']},"
-                    f"{bbox['min_lng']} {bbox['min_lat']}))"
-                )
-
-            try:
-                resp = await client.get(OBIS_API_BASE, params=params)
-                resp.raise_for_status()
-                data = resp.json()
-            except (httpx.HTTPError, ValueError) as exc:
-                logger.error("OBIS API error: %s", exc)
-                break
-
-            results = data.get("results", [])
-            if not results:
-                break
-
-            for rec in results:
-                lat = rec.get("decimalLatitude")
-                lng = rec.get("decimalLongitude")
-                event_date = rec.get("eventDate")
-
-                if lat is None or lng is None or event_date is None:
-                    continue
-
-                try:
-                    dt = datetime.fromisoformat(
-                        event_date.replace("Z", "+00:00").split("T")[0]
-                    )
-                except ValueError:
-                    continue
-
-                records.append({
-                    "lat": float(lat),
-                    "lng": float(lng),
-                    "date": dt.strftime("%Y-%m-%d"),
-                    "month": dt.month,
-                    "obis_sst": rec.get("sst"),
-                    "obis_sss": rec.get("sss"),
-                })
-
-                if len(records) >= limit:
-                    break
-
-            offset += page_size
-            if offset >= data.get("total", 0):
-                break
-
-    logger.info("Fetched %d OBIS records for '%s'", len(records), species)
-    return records
+def parse_observation(obs):
+    coords = (obs.get('geojson') or {}).get('coordinates')
+    if not coords or len(coords) != 2 or not obs.get('observed_on'):
+        return None
+    try:
+        day = date.fromisoformat(obs['observed_on'][:10])
+        lng, lat = map(float, coords)
+        if not -90 <= lat <= 90 or not -180 <= lng <= 180:
+            return None
+    except (ValueError, TypeError):
+        return None
+    return {'id': obs['id'], 'lat': lat, 'lng': lng, 'date': day.isoformat(),
+            'month': day.month, 'presence': 1}
 
 
-# ---------------------------------------------------------------------------
-# iNaturalist: Species Occurrence Fetching
-# ---------------------------------------------------------------------------
-async def fetch_inaturalist_occurrences(
-    species: str,
-    taxon_id: Optional[int] = None,
-    limit: int = 500,
-    bbox: Optional[Dict[str, float]] = None,
-) -> List[Dict[str, Any]]:
-    """
-    Fetch historical species occurrence records from the iNaturalist API.
-
-    :param species: Scientific name, e.g. "Columba livia".
-    :param limit: Maximum number of records to retrieve.
-    :param bbox: Optional bounding box dict {min_lng, min_lat, max_lng, max_lat}.
-    :returns: List of dicts with keys: lat, lng, date, month.
-    """
-    records: List[Dict[str, Any]] = []
-    page_size = min(limit, 200)  # iNaturalist API maxes out efficiently around 200 per page for observations
+async def fetch_observations(params, cap, require_complete=False, progress=None):
+    """Never silently truncate complete discovery queries or failed pages."""
+    records, seen = [], set()
     page = 1
+    expected = None
+    while True:
+        data = await gateway.get(f'{INAT}/observations', {
+            **params, 'per_page': 200, 'page': page, 'order_by': 'id', 'order': params.get('order', 'asc')})
+        total = data.get('total_results')
+        if not isinstance(total, int) or not isinstance(data.get('results'), list):
+            raise UpstreamError('Incomplete sightings response. Please try again.')
+        if expected is None:
+            expected = total
+        if require_complete and (total > cap or total != expected):
+            raise UpstreamError('Too many or changing sightings. Narrow the area and try again.')
+        rows = data['results']
+        before = len(seen)
+        for obs in rows:
+            if obs.get('id') is not None and obs['id'] not in seen:
+                seen.add(obs['id'])
+                records.append(obs)
+        if progress:
+            progress(f'Retrieved {len(records)} of {total} sightings…')
+        if len(seen) >= total:
+            return records[:cap], total, len(seen) >= total
+        if not require_complete and len(records) >= cap:
+            return records[:cap], total, False
+        if len(rows) < 200 or len(seen) == before:
+            raise UpstreamError('Sightings pagination was incomplete. Please retry or narrow the area.')
+        page += 1
 
-    async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
-        # Resolve taxon_id if not provided
-        if not taxon_id:
-            try:
-                resp = await client.get(f"https://api.inaturalist.org/v1/taxa/autocomplete?q={species}")
-                data = resp.json()
-                if data.get("results") and len(data["results"]) > 0:
-                    taxon_id = data["results"][0]["id"]
-            except Exception as e:
-                logger.warning("Failed to resolve taxon_id for %s: %s", species, e)
 
-        while len(records) < limit:
-            params: Dict[str, Any] = {
-                "per_page": page_size,
-                "page": page,
-                "quality_grade": "research",  # Ensure high quality data
-                "has[]": "geo" # Must have coordinates
-            }
-            if taxon_id:
-                params["taxon_id"] = taxon_id
+async def local_occurrences(taxon_id, lat, lng, radius, limit, progress):
+    start, end = evidence_window()
+    params = {'taxon_id': taxon_id, 'lat': lat, 'lng': lng, 'radius': radius,
+              'quality_grade': 'research', 'captive': 'false', 'geo': 'true',
+              'd1': start.isoformat(), 'd2': end.isoformat(), 'order': 'desc'}
+    rows, total, complete = await fetch_observations(params, limit, progress=progress)
+    records, seen = [], set()
+    for row in rows:
+        record = parse_observation(row)
+        if record and record['id'] not in seen and distance_km(lat, lng, record['lat'], record['lng']) <= radius:
+            records.append(record)
+            seen.add(record['id'])
+    return records, {'upstream_total': total, 'complete': complete,
+                     'fetched_records': len(rows), 'unusable_records': len(rows) - len(records)}
+
+
+def _source_days(environment, source):
+    return [key for key in ENVIRONMENTS[environment] if FEATURES[key]['source'] == source]
+
+
+async def environmental_days(lat, lng, start, end, environment, forecast=False):
+    """Use hourly UTC data for both training and forecasts; no proxy imputation."""
+    start = date.fromisoformat(str(start))
+    end = date.fromisoformat(str(end))
+    result = {str(start + timedelta(days=i)): {} for i in range((end-start).days + 1)}
+    warnings = []
+    for source in ('weather', 'marine'):
+        keys = _source_days(environment, source)
+        if not keys:
+            continue
+        # SMOC SST/currents coverage starts January 2022. Archive weather lags several days.
+        if not forecast and ((source == 'marine' and start < date(2022, 1, 1)) or
+                             (source == 'weather' and end > date.today() - timedelta(days=5))):
+            warnings.append(f'{source.title()} historical data is unavailable for this date range.')
+            continue
+        url = MARINE if source == 'marine' else (WEATHER_FORECAST if forecast else WEATHER_ARCHIVE)
+        params = {'latitude': lat, 'longitude': lng, 'start_date': str(start), 'end_date': str(end),
+                  'hourly': ','.join(FEATURES[k]['variable'] for k in keys), 'timezone': 'GMT',
+                  'wind_speed_unit': 'kmh', 'cell_selection': 'nearest'}
+        if source == 'marine':
+            params.pop('wind_speed_unit')
+            params['velocity_unit'] = 'kmh'
+        try:
+            data = await gateway.get(url, params)
+            hourly = data.get('hourly', {})
+            times = hourly.get('time', [])
+            for day in result:
+                indexes = [i for i, t in enumerate(times) if t[:10] == day]
+                for key in keys:
+                    values = hourly.get(FEATURES[key]['variable'], [])
+                    selected = [values[i] for i in indexes if i < len(values)]
+                    result[day][key] = aggregate(selected, key)
+        except UpstreamError as exc:
+            if 'budget' in str(exc).lower() or 'quota' in str(exc).lower():
+                raise
+            warnings.append(f'{source.title()} data unavailable: {exc}')
+    for conditions in result.values():
+        for key in ENVIRONMENTS[environment]:
+            conditions.setdefault(key, None)
+    return result, warnings
+
+
+async def align_history(points, environment, progress):
+    lock = asyncio.Semaphore(4)
+    completed = 0
+    excluded = []
+    aligned = []
+
+    async def fetch(point):
+        nonlocal completed
+        async with lock:
+            key = (round(point['lat'], 4), round(point['lng'], 4), point['date'], environment)
+            if key not in env_cache:
+                days, _ = await environmental_days(point['lat'], point['lng'], point['date'], point['date'], environment)
+                conditions = days[point['date']]
+                if all(v is not None for v in conditions.values()):
+                    env_cache[key] = conditions
             else:
-                params["taxon_name"] = species
-            if bbox:
-                params["nelat"] = bbox['max_lat']
-                params["nelng"] = bbox['max_lng']
-                params["swlat"] = bbox['min_lat']
-                params["swlng"] = bbox['min_lng']
-
-            try:
-                resp = await client.get("https://api.inaturalist.org/v1/observations", params=params)
-                resp.raise_for_status()
-                data = resp.json()
-            except (httpx.HTTPError, ValueError) as exc:
-                logger.error("iNaturalist API error: %s", exc)
-                break
-
-            results = data.get("results", [])
-            if not results:
-                break
-
-            for rec in results:
-                location = rec.get("location")
-                if not location:
-                    continue
-                    
-                lat_str, lng_str = location.split(",")
-                lat = float(lat_str)
-                lng = float(lng_str)
-                
-                observed_on = rec.get("observed_on")
-                if not observed_on:
-                    continue
-
-                try:
-                    dt = datetime.fromisoformat(observed_on)
-                except ValueError:
-                    continue
-
-                records.append({
-                    "lat": lat,
-                    "lng": lng,
-                    "date": dt.strftime("%Y-%m-%d"),
-                    "month": dt.month,
-                })
-
-                if len(records) >= limit:
-                    break
-
-            page += 1
-            if len(results) < page_size:
-                # We've reached the end of the available results
-                break
-
-    logger.info("Fetched %d iNaturalist records for '%s'", len(records), species)
-    return records
-
-
-# ---------------------------------------------------------------------------
-# Open-Meteo: Historical Weather
-# ---------------------------------------------------------------------------
-async def fetch_historical_weather(
-    lat: float,
-    lng: float,
-    date: str,
-    client: Optional[httpx.AsyncClient] = None,
-) -> Dict[str, Optional[float]]:
-    """
-    Fetch historical weather from Open-Meteo Archive API for a single day.
-
-    :param lat: Latitude.
-    :param lng: Longitude.
-    :param date: Date string "YYYY-MM-DD".
-    :param client: Optional reusable httpx client.
-    :returns: Dict with temperature_2m, wind_speed_10m, wind_direction_10m.
-    """
-    params = {
-        "latitude": lat,
-        "longitude": lng,
-        "start_date": date,
-        "end_date": date,
-        "hourly": "temperature_2m,wind_speed_10m,wind_direction_10m",
-    }
-
-    result = {
-        "temperature_2m": None,
-        "wind_speed_10m": None,
-        "wind_direction_10m": None,
-    }
-
-    try:
-        should_close = client is None
-        client = client or httpx.AsyncClient(timeout=API_TIMEOUT)
-        try:
-            resp = await client.get(OPEN_METEO_ARCHIVE, params=params)
-
-            if resp.status_code == 429:
-                raise RateLimitError(
-                    "Open-Meteo Weather API quota exceeded (HTTP 429). "
-                    "Free tier allows 10,000 requests/day and 600/min. "
-                    "Please try again later or reduce the sample size."
-                )
-
-            resp.raise_for_status()
-            data = resp.json()
-
-            hourly = data.get("hourly", {})
-            for key in result:
-                values = hourly.get(key, [])
-                valid = [v for v in values if v is not None]
-                result[key] = float(np.mean(valid)) if valid else None
-        finally:
-            if should_close:
-                await client.aclose()
-
-    except RateLimitError:
-        raise  # Let rate limit errors propagate immediately
-    except (httpx.HTTPError, ValueError) as exc:
-        logger.warning("Open-Meteo weather error for (%s, %s, %s): %s",
-                       lat, lng, date, exc)
-
-    return result
-
-
-# ---------------------------------------------------------------------------
-# Open-Meteo: Marine Conditions
-# ---------------------------------------------------------------------------
-async def fetch_marine_conditions(
-    lat: float,
-    lng: float,
-    date: str,
-    client: Optional[httpx.AsyncClient] = None,
-) -> Dict[str, Optional[float]]:
-    """
-    Fetch marine conditions from Open-Meteo Marine API for a single day.
-
-    :param lat: Latitude.
-    :param lng: Longitude.
-    :param date: Date string "YYYY-MM-DD".
-    :param client: Optional reusable httpx client.
-    :returns: Dict with sea_surface_temperature, wave_height,
-              ocean_current_velocity.
-    """
-    params = {
-        "latitude": lat,
-        "longitude": lng,
-        "start_date": date,
-        "end_date": date,
-        "hourly": "sea_surface_temperature,wave_height,ocean_current_velocity",
-    }
-
-    result = {
-        "sea_surface_temperature": None,
-        "wave_height": None,
-        "ocean_current_velocity": None,
-    }
-
-    try:
-        should_close = client is None
-        client = client or httpx.AsyncClient(timeout=API_TIMEOUT)
-        try:
-            resp = await client.get(OPEN_METEO_MARINE, params=params)
-
-            if resp.status_code == 429:
-                raise RateLimitError(
-                    "Open-Meteo Marine API quota exceeded (HTTP 429). "
-                    "Free tier allows 10,000 requests/day and 600/min. "
-                    "Please try again later or reduce the sample size."
-                )
-
-            resp.raise_for_status()
-            data = resp.json()
-
-            hourly = data.get("hourly", {})
-            for key in result:
-                values = hourly.get(key, [])
-                valid = [v for v in values if v is not None]
-                result[key] = float(np.mean(valid)) if valid else None
-        finally:
-            if should_close:
-                await client.aclose()
-
-    except RateLimitError:
-        raise  # Let rate limit errors propagate immediately
-    except (httpx.HTTPError, ValueError) as exc:
-        logger.warning("Open-Meteo marine error for (%s, %s, %s): %s",
-                       lat, lng, date, exc)
-
-    return result
-
-
-# ---------------------------------------------------------------------------
-# SST Validation
-# ---------------------------------------------------------------------------
-def validate_sst(
-    open_meteo_sst: Optional[float],
-    obis_sst: Optional[float],
-) -> Dict[str, Any]:
-    """
-    Compare Open-Meteo SST with OBIS pre-computed SST for quality assurance.
-
-    :returns: Dict with ok (bool), divergence (float|None), warning (str|None).
-    """
-    if open_meteo_sst is None or obis_sst is None:
-        return {"ok": True, "divergence": None, "warning": None}
-
-    divergence = abs(open_meteo_sst - obis_sst)
-    if divergence > SST_DIVERGENCE_THRESHOLD:
-        return {
-            "ok": False,
-            "divergence": round(divergence, 2),
-            "warning": (
-                f"SST divergence: Open-Meteo={open_meteo_sst:.1f}°C vs "
-                f"OBIS={obis_sst:.1f}°C (Δ={divergence:.1f}°C)"
-            ),
-        }
-    return {"ok": True, "divergence": round(divergence, 2), "warning": None}
-
-
-# ---------------------------------------------------------------------------
-# Pseudo-Absence Generation
-# ---------------------------------------------------------------------------
-def generate_pseudo_absences(
-    occurrences: List[Dict[str, Any]],
-    n_absences: int,
-) -> List[Dict[str, Any]]:
-    """
-    Generate pseudo-absence (background) points for SDM training.
-
-    Points are placed randomly within the geographic and temporal extent
-    of the real occurrence data, with a buffer.
-
-    :param occurrences: List of occurrence dicts with lat, lng, date.
-    :param n_absences: Number of pseudo-absence points to generate.
-    :returns: List of dicts with lat, lng, date, month (presence=0).
-    """
-    if not occurrences:
-        return []
-
-    lats = [r["lat"] for r in occurrences]
-    lngs = [r["lng"] for r in occurrences]
-    dates = [datetime.strptime(r["date"], "%Y-%m-%d") for r in occurrences]
-
-    lat_range = max(lats) - min(lats)
-    lng_range = max(lngs) - min(lngs)
-    buffer_lat = max(lat_range * 0.1, 1.0)
-    buffer_lng = max(lng_range * 0.1, 1.0)
-
-    lat_min = max(min(lats) - buffer_lat, -90)
-    lat_max = min(max(lats) + buffer_lat, 90)
-    lng_min = max(min(lngs) - buffer_lng, -180)
-    lng_max = min(max(lngs) + buffer_lng, 180)
-
-    date_min = min(dates)
-    date_max = max(dates)
-    date_span = (date_max - date_min).days
-    if date_span < 30:
-        date_span = 365
-
-    absences = []
-    for _ in range(n_absences):
-        rand_lat = random.uniform(lat_min, lat_max)
-        rand_lng = random.uniform(lng_min, lng_max)
-        rand_date = date_min + timedelta(days=random.randint(0, date_span))
-
-        absences.append({
-            "lat": round(rand_lat, 4),
-            "lng": round(rand_lng, 4),
-            "date": rand_date.strftime("%Y-%m-%d"),
-            "month": rand_date.month,
-        })
-
-    logger.info("Generated %d pseudo-absence points", len(absences))
-    return absences
-
-
-# ---------------------------------------------------------------------------
-# Master Pipeline: Build Aligned Dataset
-# ---------------------------------------------------------------------------
-async def build_aligned_dataset(
-    species: str,
-    taxon_id: Optional[int] = None,
-    limit: int = 500,
-    progress_callback=None,
-) -> Dict[str, Any]:
-    """
-    End-to-end pipeline: fetch occurrences, generate pseudo-absences,
-    retrieve environmental data for all points, and return an aligned
-    DataFrame plus validation metadata.
-
-    :param species: Scientific name.
-    :param limit: Number of OBIS records to fetch.
-    :param progress_callback: Optional callable(message: str) for progress.
-    :returns: Dict with 'dataframe' (pd.DataFrame), 'sst_warnings' (list),
-              'stats' (dict).
-    """
-    def _progress(msg):
-        if progress_callback:
-            progress_callback(msg)
-        logger.info(msg)
-
-    _progress(f"Fetching up to {limit} OBIS records for '{species}'...")
-    occurrences = await fetch_obis_occurrences(species, limit=limit)
-
-    if not occurrences:
-        raise ValueError(f"No OBIS records found for '{species}'")
-
-    _progress(f"Retrieved {len(occurrences)} occurrence records")
-
-    n_absences = len(occurrences)
-    _progress(f"Generating {n_absences} pseudo-absence points...")
-    absences = generate_pseudo_absences(occurrences, n_absences)
-
-    all_points = []
-    for rec in occurrences:
-        all_points.append({**rec, "presence": 1})
-    for rec in absences:
-        all_points.append({**rec, "presence": 0, "obis_sst": None, "obis_sss": None})
-
-    _progress("Fetching environmental data from Open-Meteo...")
-    sst_warnings = []
-    semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
-    completed_count = 0
-    total_points = len(all_points)
-
-    async def _fetch_env_for_point(point, idx, client):
-        """Fetch weather + marine data for a single point, guarded by semaphore."""
-        nonlocal completed_count
-        async with semaphore:
-            weather = await fetch_historical_weather(
-                point["lat"], point["lng"], point["date"], client=client
-            )
-            marine = await fetch_marine_conditions(
-                point["lat"], point["lng"], point["date"], client=client
-            )
-
-        point["sst"] = marine.get("sea_surface_temperature")
-        point["wind_speed"] = weather.get("wind_speed_10m")
-        point["wind_direction"] = weather.get("wind_direction_10m")
-        point["wave_height"] = marine.get("wave_height")
-        point["ocean_current_velocity"] = marine.get("ocean_current_velocity")
-
-        if point["presence"] == 1:
-            validation = validate_sst(point["sst"], point.get("obis_sst"))
-            point["sst_validation_ok"] = validation["ok"]
-            if validation["warning"]:
-                sst_warnings.append(validation["warning"])
+                conditions = dict(env_cache[key])
+        missing = [k for k, v in conditions.items() if v is None]
+        if missing:
+            excluded.append({'id': point['id'], 'date': point['date'], 'missing': missing})
         else:
-            point["sst_validation_ok"] = True
+            aligned.append({**point, **conditions})
+        completed += 1
+        if completed % 20 == 0 or completed == len(points):
+            progress(f'Aligning environmental evidence: {completed}/{len(points)}')
 
-        completed_count += 1
-        if completed_count % 50 == 0:
-            _progress(
-                f"Processing environmental data: {completed_count}/{total_points} points..."
-            )
-
-    async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
-        tasks = [
-            _fetch_env_for_point(point, i, client)
-            for i, point in enumerate(all_points)
-        ]
+    tasks = [asyncio.create_task(fetch(point)) for point in points]
+    try:
         await asyncio.gather(*tasks)
+    except BaseException:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        raise
+    # Network completion order must not change the split or fitted model.
+    return sorted(aligned, key=lambda p: str(p['id'])), sorted(excluded, key=lambda p: str(p['id']))
 
-    _progress("Building aligned DataFrame...")
 
-    df = pd.DataFrame(all_points)
-
-    analysis_columns = [
-        "presence", "lat", "lng", "month", "sst", "wind_speed",
-        "wind_direction", "wave_height", "ocean_current_velocity",
-        "sst_validation_ok",
-    ]
-    available_cols = [c for c in analysis_columns if c in df.columns]
-    df = df[available_cols]
-
-    env_cols = ["sst", "wind_speed", "wind_direction", "wave_height",
-                "ocean_current_velocity"]
-    available_env = [c for c in env_cols if c in df.columns]
-    rows_before = len(df)
-    df = df.dropna(subset=available_env)
-    rows_dropped = rows_before - len(df)
-
-    if rows_dropped > 0:
-        _progress(f"Dropped {rows_dropped} rows with missing environmental data")
-
-    _progress(f"Dataset ready: {len(df)} rows, {len(df.columns)} columns")
-
-    stats = {
-        "total_records": len(df),
-        "presence_count": int(df["presence"].sum()),
-        "absence_count": int((df["presence"] == 0).sum()),
-        "rows_dropped": rows_dropped,
-        "sst_warnings_count": len(sst_warnings),
-    }
-
-    return {
-        "dataframe": df,
-        "sst_warnings": sst_warnings,
-        "stats": stats,
-    }
+def timestamp():
+    return datetime.now(timezone.utc).isoformat()

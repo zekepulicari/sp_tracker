@@ -1,0 +1,9 @@
+{
+  "type": "live_check_unavailable",
+  "species": "Puma concolor",
+  "environment": "terrestrial",
+  "checked_on": "2026-10-16",
+  "summary": "iNaturalist is undergoing scheduled maintenance. Please try again after the service returns.",
+  "validation": null,
+  "notice": "No predictive-performance claim can be made from an unavailable live check."
+}

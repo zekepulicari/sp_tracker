@@ -1,0 +1,42 @@
+stages:
+  - test
+  - build
+
+backend:
+  stage: test
+  image: python:3.12-slim
+  script:
+    - python -m pip install -r backend/requirements-lock.txt
+    - python -m pytest -q
+  variables:
+    GEMINI_KEY: ""
+
+frontend:
+  stage: test
+  image: node:22-slim
+  script:
+    - npm run check
+    - npm test
+
+docker:
+  stage: build
+  image: docker:27
+  services:
+    - name: docker:27-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - docker build -t species-tracker:ci .
+    - docker run --rm species-tracker:ci python -c "from pathlib import Path; assert not Path('/app/.env').exists()"
+    - docker run -d --name tracker-check species-tracker:ci
+    - |
+      ready=0
+      for attempt in $(seq 1 30); do
+        if docker exec tracker-check python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"; then ready=1; break; fi
+        sleep 1
+      done
+      test "$ready" = 1
+  after_script:
+    - docker rm -f tracker-check || true

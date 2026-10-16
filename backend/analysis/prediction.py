@@ -1,394 +1,164 @@
-import logging
-from datetime import datetime
-from typing import Dict, Any, Callable, List, Optional
-import httpx
-import pandas as pd
+"""Single-species seasonal profiles, environmental outlooks, and day comparison."""
 import asyncio
-import math
-import numpy as np
-
-from analysis.data_ingestion import fetch_inaturalist_occurrences, generate_pseudo_absences, fetch_historical_weather, fetch_marine_conditions
-from analysis.probability_model import fit_glm, fit_random_forest, fit_cca
+import copy
+from datetime import date, timedelta
+from cachetools import TTLCache
+from analysis.data_ingestion import local_occurrences, align_history, environmental_days, timestamp
+from analysis.features import definitions, ENVIRONMENTS
+from analysis.geo import background_samples
+from analysis.probability_model import train_model, predict
 from analysis.interpretation import generate_interpretation
+from config import MODEL_VERSION
 
-logger = logging.getLogger(__name__)
+model_cache = TTLCache(maxsize=24, ttl=3600)
 
-async def fetch_open_meteo_forecast(lat: float, lng: float, target_date: str) -> dict:
-    """
-    Fetch weather and marine forecast data for a specific location and date in the near future.
-    
-    This function utilizes the Open-Meteo API to retrieve daily maximums and averages 
-    for environmental variables (e.g., temperature, wind, wave height) up to 14 days in advance.
-    
-    Args:
-        lat (float): Latitude of the target location.
-        lng (float): Longitude of the target location.
-        target_date (str): The date to fetch the forecast for, formatted as "YYYY-MM-DD".
-        
-    Returns:
-        dict: A dictionary containing the environmental conditions mapped to model features
-              (air_temp, wind_speed, precipitation, sst, wave_height, ocean_current).
-    """
-    weather_url = "https://api.open-meteo.com/v1/forecast"
-    marine_url = "https://marine-api.open-meteo.com/v1/marine"
 
-    # Define query parameters for the general weather API
-    params = {
-        "latitude": lat,
-        "longitude": lng,
-        "start_date": target_date,
-        "end_date": target_date,
-        "daily": "temperature_2m_mean,wind_speed_10m_max,precipitation_sum",
-        "timezone": "GMT"
-    }
-    
-    # Define query parameters for the specialized marine API
-    marine_params = {
-        "latitude": lat,
-        "longitude": lng,
-        "start_date": target_date,
-        "end_date": target_date,
-        "daily": "wave_height_max,ocean_current_velocity_max",
-        "timezone": "GMT"
-    }
-    
-    # Initialize the default return payload with null values
-    env_data = {
-        "air_temp": None,
-        "wind_speed": None,
-        "precipitation": None,
-        "sst": None,  
-        "wave_height": None,
-        "ocean_current": None
-    }
+def historical_profile(records):
+    return [{'month': month, 'count': sum(r['month'] == month for r in records),
+             'years': sorted({int(r['date'][:4]) for r in records if r['month'] == month})}
+            for month in range(1, 13)]
 
-    async with httpx.AsyncClient() as client:
-        try:
-            # Fetch general weather conditions
-            w_resp = await client.get(weather_url, params=params)
-            w_resp.raise_for_status()
-            w_data = w_resp.json()
-            if "daily" in w_data:
-                env_data["air_temp"] = w_data["daily"]["temperature_2m_mean"][0]
-                env_data["wind_speed"] = w_data["daily"]["wind_speed_10m_max"][0]
-                env_data["precipitation"] = w_data["daily"]["precipitation_sum"][0]
-                
-            # Fetch marine conditions
-            m_resp = await client.get(marine_url, params=marine_params)
-            m_resp.raise_for_status()
-            m_data = m_resp.json()
-            if "daily" in m_data:
-                env_data["wave_height"] = m_data["daily"].get("wave_height_max", [None])[0]
-                env_data["ocean_current"] = m_data["daily"].get("ocean_current_velocity_max", [None])[0]
-                
-                # As a fallback proxy, we assume sea surface temperature roughly maps to near-surface air temp
-                env_data["sst"] = env_data["air_temp"] 
-        except Exception as e:
-            logger.warning(f"Error fetching forecast: {e}")
-            
-    return env_data
 
-async def fetch_open_meteo_historical_average(lat: float, lng: float, target_date: str) -> dict:
-    """
-    Fetch historical average data to act as a proxy when the target date exceeds the 14-day forecast window.
-    
-    Since standard weather APIs cannot forecast beyond 14 days, this function retrieves 
-    historical data from exactly one year prior to simulate expected seasonal conditions.
-    
-    Args:
-        lat (float): Latitude of the target location.
-        lng (float): Longitude of the target location.
-        target_date (str): The future date to simulate (e.g. >14 days from now).
-        
-    Returns:
-        dict: A dictionary containing the simulated environmental conditions.
-    """
-    past_date_obj = datetime.strptime(target_date, "%Y-%m-%d")
+async def collect_local(request, progress):
+    radius = request.radius_km
+    while True:
+        progress(f'Fetching local sightings within {radius:g} km…')
+        records, completeness = await local_occurrences(request.taxon_id, request.target_lat,
+            request.target_lng, radius, request.limit, progress)
+        if len(records) >= 50 or radius >= 50:
+            return records, radius, completeness
+        radius = min(radius + 5, 50)
+
+
+def base_result(request, records, radius, completeness):
+    dates = sorted(r['date'] for r in records)
+    return {'type': 'historical_profile', 'species': {'id': request.taxon_id, 'name': request.species},
+            'environment': request.environment, 'target_date': str(request.target_date),
+            'location': {'lat': request.target_lat, 'lng': request.target_lng},
+            'profile': historical_profile(records), 'features': definitions(request.environment),
+            'evidence': {'sightings': len(records), 'background_samples': 0, 'excluded_records': [],
+                         'date_start': dates[0] if dates else None, 'date_end': dates[-1] if dates else None,
+                         'radius_km': radius, 'record_ids': [r['id'] for r in records],
+                         'source_records': [{'id': r['id'], 'date': r['date']} for r in records],
+                         'completeness': completeness, 'fetched_at': timestamp(), 'seed': 42,
+                         'model_version': MODEL_VERSION},
+            'warnings': ['Recorded sightings reflect observer effort, not confirmed encounter rates.']}
+
+
+async def training(request, progress):
+    records, radius, completeness = await collect_local(request, progress)
+    result = base_result(request, records, radius, completeness)
+    if not completeness['complete']:
+        result['warnings'].append('Sightings are a capped local sample; monthly counts are not complete totals.')
+    if not records:
+        result['summary'] = 'No matching recorded sightings were found. This does not mean the species is absent.'
+        return None, result
+    if request.method == 'rustic':
+        result['summary'] = 'This chart shows when local sightings were recorded across years. It does not estimate the chance of a successful visit.'
+        return None, result
+    max_day = date.today() + timedelta(days=9 if request.environment == 'marine' else 6)
+    if request.operation == 'single_day' and request.method == 'glm' and not date.today() <= request.target_date <= max_day:
+        result['weather'] = {'available': False, 'reason': 'Date is outside the supported forecast window.'}
+        result['summary'] = 'Weather is unavailable for this date. Use the historical monthly sightings profile as a seasonal reference.'
+        return None, result
+    progress('Generating reproducible background samples inside the study circle…')
+    backgrounds = background_samples(records, request.target_lat, request.target_lng, radius)
+    aligned, excluded = await align_history(records + backgrounds, request.environment, progress)
+    result['evidence'].update({'background_samples': len(backgrounds), 'excluded_records': excluded,
+        'usable_sightings': sum(p['presence'] == 1 for p in aligned),
+        'usable_background': sum(p['presence'] == 0 for p in aligned),
+        'training_records': [{'id': p['id'], 'date': p['date']} for p in aligned]})
+    progress('Validating spatial and chronological holdouts against the seasonal baseline…')
     try:
-        # Subtract exactly one year to retrieve historical seasonality data
-        past_date = past_date_obj.replace(year=past_date_obj.year - 1).strftime("%Y-%m-%d")
-    except ValueError:
-        # Handle leap year edge cases (e.g., Feb 29)
-        past_date = past_date_obj.replace(year=past_date_obj.year - 1, day=28).strftime("%Y-%m-%d")
-        
-    weather_url = "https://archive-api.open-meteo.com/v1/archive"
-    marine_url = "https://marine-api.open-meteo.com/v1/marine"
+        model, metadata = await asyncio.to_thread(train_model, aligned, request.environment, request.method)
+    except ValueError as exc:
+        result['summary'] = str(exc)
+        result['warnings'].append('Environmental outlook unavailable; the historical profile remains available.')
+        return None, result
+    result['model'] = metadata
+    result['type'] = 'environmental_outlook'
+    if metadata['validation']['experimental']:
+        result['warnings'].append('Experimental: both independent holdouts could not be evaluated.')
+    if not metadata['validation']['ranking_allowed']:
+        result['warnings'].append('Validation has not demonstrated improvement over the seasonal baseline in both holdouts; favorability assessments and day rankings are withheld.')
+    return model, result
 
-    params = {
-        "latitude": lat,
-        "longitude": lng,
-        "start_date": past_date,
-        "end_date": past_date,
-        "daily": "temperature_2m_mean,wind_speed_10m_max,precipitation_sum",
-        "timezone": "GMT"
-    }
-    
-    marine_params = {
-        "latitude": lat,
-        "longitude": lng,
-        "start_date": past_date,
-        "end_date": past_date,
-        "daily": "wave_height_max,ocean_current_velocity_max",
-        "timezone": "GMT"
-    }
-    
-    env_data = {
-        "air_temp": None,
-        "wind_speed": None,
-        "precipitation": None,
-        "sst": None,
-        "wave_height": None,
-        "ocean_current": None
-    }
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            # Fetch historical general weather conditions
-            w_resp = await client.get(weather_url, params=params)
-            w_resp.raise_for_status()
-            w_data = w_resp.json()
-            if "daily" in w_data:
-                env_data["air_temp"] = w_data["daily"]["temperature_2m_mean"][0]
-                env_data["wind_speed"] = w_data["daily"]["wind_speed_10m_max"][0]
-                env_data["precipitation"] = w_data["daily"]["precipitation_sum"][0]
-                
-            # Fetch historical marine conditions
-            m_resp = await client.get(marine_url, params=marine_params)
-            m_resp.raise_for_status()
-            m_data = m_resp.json()
-            if "daily" in m_data:
-                env_data["wave_height"] = m_data["daily"].get("wave_height_max", [None])[0]
-                env_data["ocean_current"] = m_data["daily"].get("ocean_current_velocity_max", [None])[0]
-                env_data["sst"] = env_data["air_temp"] 
-        except Exception as e:
-            logger.warning(f"Error fetching historical proxy: {e}")
-            
-    return env_data
 
-async def run_prediction_pipeline(task_id: str, species: str, taxon_id: Optional[int], lat: float, lng: float, target_date: str, radius_km: float, limit: int, method: str, analysis_tasks: dict):
-    """
-    Orchestrate the end-to-end local prediction pipeline for a specific geographic coordinate and date.
-    
-    This function:
-    1. Dynamically expands a bounding box around the target location until it finds enough historical sightings.
-    2. Generates pseudo-absence data to train the model against.
-    3. Fetches historical environmental data (SST, wind speed, etc.) for all sightings and absences.
-    4. Trains a local Generalized Linear Model (GLM) specifically tuned for this region.
-    5. Retrieves the forecasted environmental conditions for the target date.
-    6. Uses the trained GLM to calculate the probability of encountering the species.
-    7. Leverages Gemini AI to interpret the results in natural language.
-    
-    Args:
-        task_id (str): Unique UUID to track the background job's progress.
-        species (str): Scientific name of the target species.
-        lat (float): Target latitude.
-        lng (float): Target longitude.
-        target_date (str): The date to predict the encounter for.
-        radius_km (float): The starting radius in kilometers to search for historical data.
-        limit (int): The maximum number of occurrence records to retrieve.
-        analysis_tasks (dict): The shared state dictionary used to broadcast status to the frontend.
-    """
-    try:
-        def update_progress(msg: str):
-            """Helper to push status updates to the shared tracking dictionary."""
-            analysis_tasks[task_id]["progress"] = msg
-            logger.info("[%s] %s", task_id[:8], msg)
+def ranking_allowed(model_metadata, days):
+    eligible = model_metadata['validation']['ranking_allowed']
+    usable = [d for d in days if d.get('available') and not d.get('extrapolated_variables')]
+    return eligible and len(usable) >= 2
 
-        analysis_tasks[task_id]["status"] = "running"
-        
-        # ---------------------------------------------------------------------
-        # STEP 1: Spatial Filtering & Dynamic Bounding Box Expansion
-        # ---------------------------------------------------------------------
-        # We need a minimum amount of data to train a reliable local model.
-        # We start at the given radius (e.g., 5km) and expand outwards until we hit 50 occurrences,
-        # capping the search at 50km to ensure the model remains highly localized to the region.
-        max_radius_km = 50.0
-        occurrences = []
-        
-        while radius_km <= max_radius_km:
-            # Convert kilometers to approximate latitude and longitude degrees
-            lat_diff = radius_km / 111.0
-            lng_diff = radius_km / (111.0 * math.cos(math.radians(lat)))
-            
-            bbox = {
-                "min_lat": lat - lat_diff,
-                "max_lat": lat + lat_diff,
-                "min_lng": lng - lng_diff,
-                "max_lng": lng + lng_diff
-            }
-            
-            update_progress(f"Fetching local historical occurrences ({radius_km}km radius)...")
-            occurrences = await fetch_inaturalist_occurrences(species=species, taxon_id=taxon_id, limit=limit, bbox=bbox)
-            
-            # If we found at least 50 records, we have enough data to stop expanding.
-            if len(occurrences) >= 50:
-                break
-                
-            # Stop expanding if we've reached the maximum logical bounds for a "local" search.
-            if radius_km >= max_radius_km:
-                break
-                
-            update_progress(f"Found {len(occurrences)} records. Expanding radius...")
-            radius_km += 5.0
-            
-            # Avoid exceeding the absolute max in the final iteration
-            if radius_km > max_radius_km:
-                radius_km = max_radius_km
-                
-        # If even at the 50km cap we couldn't find 10 historical records, the model cannot reliably train.
-        if len(occurrences) < 10:
-            raise ValueError(f"Only {len(occurrences)} historical occurrences found near this location for {species} even at {max_radius_km}km. Model requires more data.")
 
-        # ---------------------------------------------------------------------
-        # STEP 2: Pseudo-Absence Generation
-        # ---------------------------------------------------------------------
-        # Predictive models require both "Presence" (1) and "Absence" (0) data to learn what
-        # environmental conditions the species avoids.
-        update_progress("Generating local pseudo-absences...")
-        dataset_points = []
-        
-        # Tag all actual sightings as Presence (1)
-        for rec in occurrences:
-            dataset_points.append({**rec, "presence": 1})
-            
-        # Generate random geographical points nearby and tag them as Absence (0)
-        absences = generate_pseudo_absences(occurrences, len(occurrences))
-        for rec in absences:
-            dataset_points.append({**rec, "presence": 0})
-        
-        # ---------------------------------------------------------------------
-        # STEP 3: Environmental Data Alignment (Training Data)
-        # ---------------------------------------------------------------------
-        if method == "rustic":
-            update_progress("Rustic mode: Skipping environmental history (using only seasonality)...")
-            for point in dataset_points:
-                point["month"] = int(point["date"].split("-")[1])
+async def future_days(request, model, result, progress):
+    today = date.today()
+    start = today if request.operation == 'compare_days' else request.target_date
+    end = start + timedelta(days=6) if request.operation == 'compare_days' else start
+    # Common conservative horizon: marine SST/currents are supported for up to ten days.
+    max_day = today + timedelta(days=9 if request.environment == 'marine' else 6)
+    if start < today or start > max_day:
+        result['type'] = 'historical_profile'
+        result['weather'] = {'available': False, 'reason': 'Date is outside the supported forecast window.'}
+        result['summary'] = 'Weather is unavailable for this date. Use the historical monthly sightings profile as a seasonal reference.'
+        return
+    end = min(end, max_day)
+    progress('Fetching the same daily environmental measures used during training…')
+    conditions, warnings = await environmental_days(request.target_lat, request.target_lng,
+        start, end, request.environment, forecast=True)
+    result['warnings'].extend(warnings)
+    days = []
+    for day, values in conditions.items():
+        forecast = predict(model, result['model'], values, day)
+        days.append({'date': day, 'conditions': values, 'provenance': 'forecast', **forecast})
+    result['days'] = days
+    if request.operation == 'compare_days':
+        result['type'] = 'day_comparison'
+        if ranking_allowed(result['model'], days):
+            usable = [d for d in days if d.get('available') and not d.get('extrapolated_variables')]
+            ranked = sorted(usable, key=lambda d: (-d['relative_score'], d['date']))
+            # A tie is not evidence that one day is better.
+            if max(d['relative_score'] for d in ranked) - min(d['relative_score'] for d in ranked) > 1e-6:
+                for rank, day in enumerate(ranked, 1):
+                    day['rank'] = rank
+                best = date.fromisoformat(ranked[0]['date']).strftime('%A, %B %d')
+                result['summary'] = f'{best} has the most favorable modeled conditions among the supported days. This is a relative comparison, not an encounter probability.'
+                return
+        result['summary'] = 'A reliable day ranking is unavailable: validation must beat the seasonal baseline in both holdouts, with at least two dates inside the training range. The supported conditions are shown below.'
+    else:
+        result['summary'] = 'The forecast is available, but validation does not support a reliable favorability assessment. Conditions and historical sightings are shown as evidence, not encounter chances.'
+        if not days[0]['available']:
+            result['summary'] = 'Required forecast data is missing. An environmental outlook is unavailable; the historical profile remains available.'
+        elif days[0]['extrapolated_variables']:
+            result['warnings'].append('Some forecast values fall outside the training range; an outlook would extrapolate beyond the evidence.')
+            result['summary'] = 'Forecast conditions extend outside the local training range. A reliable favorability assessment is unavailable.'
+        elif result['model']['validation']['ranking_allowed']:
+            low, high = result['model']['reference_quartiles']
+            score = days[0]['relative_score']
+            description = 'more favorable' if score >= high else 'less favorable' if score <= low else 'typical'
+            result['summary'] = f'Conditions look {description} compared with the conditions in this model’s local training sample. This comparison does not establish the chance of seeing the animal.'
+
+
+async def run_analysis(request, progress):
+    key = (request.taxon_id, request.target_lat, request.target_lng, request.radius_km,
+           request.limit, request.environment, request.method, str(date.today()))
+    if key in model_cache:
+        model, cached = model_cache[key]
+        result = copy.deepcopy(cached)
+        result['target_date'] = str(request.target_date)
+    else:
+        model, result = await training(request, progress)
+        if model is not None:
+            model_cache[key] = (model, copy.deepcopy(result))
+    if model is not None:
+        if request.method == 'rf' and request.operation == 'single_day':
+            result['summary'] = 'These are modeled associations with recorded sightings, not proof of ecological causes. Importance is shown below; this mode does not forecast an encounter.'
         else:
-            update_progress("Fetching environmental history for training...")
-            async with httpx.AsyncClient() as client:
-                for i, point in enumerate(dataset_points):
-                    if i % 50 == 0 and i > 0:
-                        update_progress(f"Processing environmental data: {i}/{len(dataset_points)} points...")
-                        
-                    weather = await fetch_historical_weather(
-                        point["lat"], point["lng"], point["date"], client=client
-                    )
-                    marine = await fetch_marine_conditions(
-                        point["lat"], point["lng"], point["date"], client=client
-                    )
-                    
-                    point["sst"] = marine.get("sea_surface_temperature")
-                    point["wind_speed"] = weather.get("wind_speed_10m")
-                    point["air_temp"] = weather.get("temperature_2m")
-                    point["precipitation"] = weather.get("precipitation")
-                    point["wave_height"] = marine.get("wave_height")
-                    point["ocean_current"] = marine.get("ocean_current_velocity")
-                    point["month"] = int(point["date"].split("-")[1])
-        
-        # Convert to a DataFrame for statistical modeling
-        df = pd.DataFrame(dataset_points)
-        
-        if method != "rustic":
-            # Drop rows missing critical baseline data (Sea Surface Temp and Wind Speed)
-            df.dropna(subset=["sst", "wind_speed"], inplace=True)
-        
-        # Ensure we still have a minimally viable dataset after dropping empty rows
-        if df.empty or df["presence"].sum() < 5 or (df["presence"] == 0).sum() < 5:
-            raise ValueError("Insufficient data for local training.")
-            
-        # ---------------------------------------------------------------------
-        # STEP 4: Local Model Training
-        # ---------------------------------------------------------------------
-        update_progress(f"Fitting local predictive model ({method})...")
-        if method == "rf":
-            model_result = fit_random_forest(df)
-        else:
-            # Rustic uses GLM (but with only the month predictor)
-            model_result = fit_glm(df)
-        
-        # ---------------------------------------------------------------------
-        # STEP 5 & 6: Environmental Forecasting & Prediction
-        # ---------------------------------------------------------------------
-        target = datetime.strptime(target_date, "%Y-%m-%d")
-        days_diff = (target - datetime.now()).days
-        
-        env_conditions = {}
-        prob = 0.0
-        mode = "Unknown"
-        
-        if method == "rf":
-            mode = "Local Training Average (No Forecast)"
-            prob = model_result.get("mean_encounter_probability", 0.0)
-            update_progress("Skipping forecast (Random Forest local mode)...")
-        elif method == "rustic":
-            mode = "Rustic Historical Baseline"
-            env_conditions = {"month": target.month}
-            update_progress("Predicting probability using baseline seasonality...")
-            coeffs = model_result.get("coefficients", {})
-            logit = coeffs.get("intercept", 0.0) + (coeffs.get("month", 0.0) * target.month)
-            prob = 1.0 / (1.0 + np.exp(-logit))
-        else:
-            if days_diff <= 14:
-                update_progress(f"Fetching weather forecast for {target_date}...")
-                env_conditions = await fetch_open_meteo_forecast(lat, lng, target_date)
-                mode = "Forecast (<= 14 days)"
-            else:
-                update_progress(f"Fetching historical average for {target_date}...")
-                env_conditions = await fetch_open_meteo_historical_average(lat, lng, target_date)
-                mode = "Historical Proxy (> 14 days)"
-                
-            update_progress("Predicting encounter probability...")
-            for col in ["air_temp", "wind_speed", "precipitation", "sst", "wave_height", "ocean_current"]:
-                if env_conditions.get(col) is None:
-                    if col in df.columns:
-                        mean_val = df[col].mean()
-                        env_conditions[col] = None if np.isnan(mean_val) else float(mean_val)
-                    else:
-                        env_conditions[col] = None
-                elif isinstance(env_conditions[col], float) and np.isnan(env_conditions[col]):
-                    env_conditions[col] = None
-                    
-            env_conditions["month"] = target.month
-            
-            coeffs = model_result.get("coefficients", {})
-            logit = coeffs.get("intercept", 0.0)
-            for var, val in env_conditions.items():
-                if var in coeffs and val is not None:
-                    logit += coeffs[var] * val
-            prob = 1.0 / (1.0 + np.exp(-logit))
-        
-        # ---------------------------------------------------------------------
-        # STEP 7: AI Interpretation and Finalization
-        # ---------------------------------------------------------------------
-        update_progress("Generating AI Interpretation...")
-        results_data = {
-            "encounter_prediction": {
-                "algorithm_method": method,
-                "probability_pct": prob * 100,
-                "mode": mode,
-                "target_date": target_date,
-                "target_lat": lat,
-                "target_lng": lng,
-                "radius_km_used": radius_km,
-                "conditions_used": env_conditions
-            },
-            "model": model_result,
-            "dataset_stats": {
-                "total_records": len(df),
-                "presence_count": int(df["presence"].sum()),
-                "absence_count": int((df["presence"] == 0).sum())
-            }
-        }
-        
-        # Pass the statistical results to Gemini to generate a human-readable summary
-        interpretation_text = generate_interpretation(species, results_data)
-        results_data["interpretation"] = interpretation_text
-
-        # Mark task as complete and push results to the frontend
-        analysis_tasks[task_id]["status"] = "complete"
-        analysis_tasks[task_id]["results"] = results_data
-        
-    except Exception as exc:
-        logger.exception("Prediction failed for task %s", task_id)
-        analysis_tasks[task_id]["status"] = "error"
-        analysis_tasks[task_id]["error"] = str(exc)
+            await future_days(request, model, result, progress)
+    result.setdefault('summary', 'Insufficient evidence for an environmental outlook.')
+    progress('Preparing the evidence summary…')
+    # Do not send exact coordinates or source records to the optional AI service.
+    ai_evidence = {k: result[k] for k in ('type', 'summary', 'warnings')}
+    ai_evidence['model'] = result.get('model')
+    result['interpretation'] = await asyncio.to_thread(generate_interpretation,
+        request.species, ai_evidence, result['summary'])
+    return result
