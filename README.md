@@ -33,8 +33,6 @@ Docker Desktop/Engine must be running. A recent Docker Compose supports optional
 2. **Species outlook:** select a resolved animal from autocomplete, explicitly choose Terrestrial or Marine, then choose a point/date and examine evidence. Coordinates are also available for keyboard users. Historical Profile shows monthly sightings; Key Factors displays Random Forest importance.
 3. **When should I go?:** after an environmental logistic analysis with a usable model, compare up to seven supported days using that same model. Ranking is withheld if independent validation does not beat the seasonal baseline or conditions fall outside the training range.
 
-The in-app **Guide** explains these workflows, how to interpret results, and what is saved. Implementation details and reproduction instructions live in this README and `docs/`.
-
 The browser remembers the last selected species and environmental setting. An active job resumes after refresh in the same browser tab. Server restarts remove in-memory jobs; the UI explains how to restart the request.
 
 ## Evidence contracts
@@ -44,7 +42,7 @@ The browser remembers the last selected species and environmental setting. An ac
 - Local analysis: a geodesic circle starts at 5 km and expands to at most 50 km. The latest up-to-200 sightings are used by default (100–500 permitted). Capped samples and unusable records are disclosed. Seeded background samples remain within the same study circle; they are not confirmed absences.
 - Terrestrial: daily mean air temperature/wind, daily total precipitation, cyclic month sine/cosine. Marine: daily mean SST/wind/waves/currents plus cyclic seasonality. Historical and forecast values share the same hourly-to-daily UTC aggregation; all 24 hours are required. No air-temperature SST proxy or mean-value imputation is used.
 - Coverage: historical marine SST/current requests start January 2022; archived weather has a five-day guard for publication lag. Forecast requests use a conservative window and require complete returned values. Unsupported dates show historical profiles without synthetic weather. Data resolution and coastal cells can limit interpretation.
-- Validation: approximately 10 km spatial cells are held together; a separate chronological holdout evaluates later dates where viable. Both compare with a cyclic seasonality-only model on identical splits. All results remain presence/background classifiers, even when holdout diagnostics are good. Environmental predictors must vary, values must be finite, and enough records from both classes must exist.
+- Validation: 0.1-degree latitude/longitude cells are held together (physical width varies with latitude); a separate chronological holdout evaluates later dates where viable. Both compare with a cyclic seasonality-only model on identical splits. All results remain presence/background classifiers, even when holdout diagnostics are good. Environmental predictors must vary, values must be finite, and enough records from both classes must exist.
 - AI: the supported Google Gen AI SDK summarizes structured evidence, with a request timeout and deterministic fallback. Exact locations and source records are not sent to the AI. The evidence and warnings remain authoritative.
 
 ## API
@@ -83,4 +81,4 @@ The old CCA approximation, habitat-envelope score, OBIS pipeline, and unrelated 
 
 ## Sources and credits
 
-[iNaturalist API](https://api.inaturalist.org/v1/docs/), [Open-Meteo Weather](https://open-meteo.com/en/docs), [Open-Meteo Marine](https://open-meteo.com/en/docs/marine-weather-api). Observation images remain remote and retain contributor attribution and licenses. Basemaps: OpenStreetMap contributors and Esri World Imagery. Track icon by Made by Made through Flaticon. The in-app Resources page links data sources and map credits. Backend runtime dependencies are recorded in `backend/requirements-lock.txt`; frontend runtime libraries are referenced in `frontend/index.html`.
+[iNaturalist API](https://api.inaturalist.org/v1/docs/), [Open-Meteo Weather](https://open-meteo.com/en/docs), [Open-Meteo Marine](https://open-meteo.com/en/docs/marine-weather-api). Observation images remain remote and retain contributor attribution and licenses. Basemaps: OpenStreetMap contributors and Esri World Imagery. Track icon by Made by Made through Flaticon. The in-app Resources page lists all runtime libraries and their documentation.
