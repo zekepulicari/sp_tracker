@@ -1,350 +1,166 @@
-from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
+"""Validated APIs and a single-worker, bounded task service."""
+from contextlib import asynccontextmanager
+from datetime import date
+from typing import Literal
+import math
+from fastapi import FastAPI, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from typing import List, Any, Optional
-import os
-import uuid
-import asyncio
-import logging
-import httpx
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from cachetools import TTLCache
-from config import INATURALIST_API, TAXON_ID, DEFAULT_ZOOM_THRESHOLD
+from config import ROOT, DEFAULT_ZOOM_THRESHOLD, TAXON_ID, ALLOWED_ORIGINS, MODEL_VERSION
+from jobs import Jobs, BusyError
+from analysis.geo import validate_polygon, inside
+from analysis.data_ingestion import INAT, parse_observation
+from analysis.prediction import run_analysis as analyze
+from analysis.discovery import run_discovery, GROUPS
+from upstream import gateway, UpstreamError
 
-# Analysis module imports
-from analysis.data_ingestion import build_aligned_dataset, RateLimitError
-from analysis.correlation import compute_correlations, compute_vif
-from analysis.probability_model import fit_glm, fit_random_forest, fit_cca
-from analysis.prediction import run_prediction_pipeline
-from analysis.interpretation import generate_interpretation
+@asynccontextmanager
+async def lifespan(app):
+    app.state.jobs = Jobs()
+    await app.state.jobs.start()
+    yield
+    await app.state.jobs.stop()
+    await gateway.close()
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+app = FastAPI(title='Species Tracker', version=MODEL_VERSION, lifespan=lifespan)
+if ALLOWED_ORIGINS:
+    app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS,
+                       allow_methods=['GET', 'POST'], allow_headers=['Content-Type'])
+cache = TTLCache(maxsize=256, ttl=3600)
 
-app = FastAPI(title="Species Tracker Backend")
+class InputModel(BaseModel):
+    model_config = ConfigDict(extra='forbid', allow_inf_nan=False)
 
-# Enable CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+class GeoJSONPolygon(InputModel):
+    type: Literal['Polygon']
+    coordinates: list[list[list[float]]]
 
-@app.get("/api/health")
-def health_check():
-    return {"status": "ok"}
+    @field_validator('coordinates')
+    @classmethod
+    def valid_geometry(cls, value):
+        validate_polygon(value)
+        return value
 
-# Create a cache: max 100 items, TTL 3600 seconds
-cache = TTLCache(maxsize=100, ttl=3600)
-
-@app.get("/api/observations")
-async def get_observations(nelat: float = None, nelng: float = None, swlat: float = None, swlng: float = None, taxon_id: int = TAXON_ID, has_geo: bool = True):
-    # Base URL for iNaturalist observations
-    url = f"https://api.inaturalist.org/v1/observations?taxon_id={taxon_id}&per_page=100&has_geo={'true' if has_geo else 'false'}"
-    
-    # If bounding box is provided
-    if nelat and nelng and swlat and swlng:
-        url += f"&nelat={nelat}&nelng={nelng}&swlat={swlat}&swlng={swlng}"
-        
-    # Check cache
-    if url in cache:
-        return cache[url]
-
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            headers = {}
-            if INATURALIST_API:
-                headers["Authorization"] = f"Bearer {INATURALIST_API}"
-
-            response = await client.get(url, headers=headers)
-            response.raise_for_status()
-            data = response.json()
-
-            # Save to cache
-            cache[url] = data
-            return data
-
-    except httpx.ConnectTimeout:
-        logger.warning("iNaturalist API timed out for URL: %s", url)
-        raise HTTPException(status_code=504, detail="iNaturalist API timed out. Please try again.")
-    except httpx.HTTPStatusError as e:
-        logger.error("iNaturalist API error %s for URL: %s", e.response.status_code, url)
-        raise HTTPException(status_code=502, detail=f"iNaturalist API error: {e.response.status_code}")
-
-@app.get("/api/species/search")
-async def search_species(q: str):
-    """
-    Proxy to iNaturalist taxa autocomplete endpoint to search for species.
-    """
-    if not q or len(q) < 3:
-        return {"results": []}
-        
-    url = f"https://api.inaturalist.org/v1/taxa/autocomplete?q={q}"
-    if url in cache:
-        return cache[url]
-        
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            cache[url] = data
-            return data
-        return {"results": []}
-
-@app.get("/api/config")
-def get_config():
-    return {
-        "DEFAULT_ZOOM_THRESHOLD": DEFAULT_ZOOM_THRESHOLD
-    }
-
-
-# ---------------------------------------------------------------------------
-# Pydantic model for polygon spatial query
-# ---------------------------------------------------------------------------
-
-class GeoJSONPolygon(BaseModel):
-    type: str
-    coordinates: List[Any]
-
-
-class PolygonRequest(BaseModel):
+class PolygonRequest(InputModel):
     polygon: GeoJSONPolygon
-    taxon_id: int = TAXON_ID
+    taxon_id: int = Field(default=TAXON_ID, gt=0)
 
+class AnalysisRequest(InputModel):
+    species: str = Field(min_length=1, max_length=200)
+    taxon_id: int = Field(gt=0)
+    environment: Literal['terrestrial', 'marine']
+    operation: Literal['single_day', 'compare_days'] = 'single_day'
+    method: Literal['glm', 'rf', 'rustic'] = 'glm'
+    limit: int = Field(default=200, ge=100, le=500)
+    target_lat: float = Field(ge=-90, le=90)
+    target_lng: float = Field(ge=-180, le=180)
+    target_date: date
+    radius_km: float = Field(default=5, ge=5, le=50)
 
-def _bbox_from_polygon(coordinates: List[Any]) -> dict:
-    """
-    Derive the bounding box from a GeoJSON Polygon coordinate ring.
-    Returns dict with keys: swlng, swlat, nelng, nelat.
+    @model_validator(mode='after')
+    def compatible_operation(self):
+        if self.operation == 'compare_days' and self.method != 'glm':
+            raise ValueError('Day comparison uses the environmental logistic model.')
+        return self
 
-    :param coordinates: Outer ring list of [lng, lat] pairs.
-    :returns: Bounding box dict {swlng, swlat, nelng, nelat}.
-    """
-    ring = coordinates[0]  # Outer ring only
-    lngs = [pt[0] for pt in ring]
-    lats = [pt[1] for pt in ring]
-    return {
-        "swlng": min(lngs),
-        "swlat": min(lats),
-        "nelng": max(lngs),
-        "nelat": max(lats),
-    }
+class DiscoveryRequest(InputModel):
+    polygon: GeoJSONPolygon
+    target_date: date
+    animal_group: Literal['all', 'birds', 'mammals', 'reptiles', 'amphibians', 'fish', 'insects', 'arachnids', 'mollusks'] = 'all'
 
+async def cached_get(path, params):
+    key = (path, tuple(sorted(params.items())))
+    if key not in cache:
+        try:
+            cache[key] = await gateway.get(f'{INAT}/{path}', params)
+        except UpstreamError as exc:
+            raise HTTPException(503, detail=str(exc)) from None
+    return cache[key]
 
-@app.post("/api/observations/within")
-async def get_observations_within(body: PolygonRequest):
-    """
-    Return iNaturalist observations within the bounding box of the given GeoJSON polygon.
-    The client should apply Turf.js point-in-polygon for exact filtering.
+@app.get('/api/health')
+def health_check():
+    return {'status': 'ok'}
 
-    :param body: PolygonRequest containing a GeoJSON Polygon geometry.
-    :returns: iNaturalist API response dict with 'results' list.
-    """
+@app.get('/api/config')
+def configuration():
+    return {'DEFAULT_ZOOM_THRESHOLD': DEFAULT_ZOOM_THRESHOLD, 'model_version': MODEL_VERSION,
+            'animal_groups': list(GROUPS), 'sample_default': 200, 'sample_max': 500}
+
+@app.get('/api/species/search')
+async def species_search(q: str = Query(min_length=0, max_length=200)):
+    if len(q.strip()) < 3:
+        return {'results': []}
+    data = await cached_get('taxa/autocomplete', {'q': q.strip(), 'is_active': 'true'})
+    return {'results': [r for r in data.get('results', []) if r.get('rank') in ('species', 'subspecies')
+                        and 1 in r.get('ancestor_ids', [])][:8]}
+
+@app.get('/api/observations')
+async def observations(taxon_id: int = Query(default=TAXON_ID, gt=0),
+                       nelat: float | None = Query(default=None, ge=-90, le=90),
+                       nelng: float | None = Query(default=None, ge=-180, le=180),
+                       swlat: float | None = Query(default=None, ge=-90, le=90),
+                       swlng: float | None = Query(default=None, ge=-180, le=180)):
+    bounds = [nelat, nelng, swlat, swlng]
+    if any(v is not None for v in bounds) and not all(v is not None and math.isfinite(v) for v in bounds):
+        raise HTTPException(422, detail='Supply all four finite bounding coordinates.')
+    params = {'taxon_id': taxon_id, 'per_page': 100, 'geo': 'true', 'captive': 'false'}
+    if nelat is not None:
+        if nelat <= swlat or nelng <= swlng:
+            raise HTTPException(422, detail='Provide a non-crossing map extent.')
+        params.update(nelat=nelat, nelng=nelng, swlat=swlat, swlng=swlng)
+    data = await cached_get('observations', params)
+    return {**data, 'sample_cap': 100, 'complete': data.get('total_results', 0) <= 100}
+
+@app.post('/api/observations/within')
+async def observations_within(body: PolygonRequest):
+    polygon = validate_polygon(body.polygon.coordinates)
+    minx, miny, maxx, maxy = polygon.bounds
+    data = await cached_get('observations', {'taxon_id': body.taxon_id, 'per_page': 200,
+        'geo': 'true', 'captive': 'false', 'nelat': maxy, 'nelng': maxx, 'swlat': miny, 'swlng': minx})
+    rows = []
+    for obs in data.get('results', []):
+        record = parse_observation(obs)
+        if record and inside(polygon, record['lat'], record['lng']):
+            rows.append(obs)
+    return {'results': rows, 'sample_cap': 200, 'complete': data.get('total_results', 0) <= 200}
+
+def submit(request, runner):
     try:
-        bbox = _bbox_from_polygon(body.polygon.coordinates)
-    except (IndexError, KeyError, TypeError) as e:
-        raise HTTPException(status_code=400, detail=f"Invalid polygon coordinates: {e}")
+        return {'task_id': request.app.state.jobs.submit(runner)}
+    except BusyError as exc:
+        raise HTTPException(429, detail=str(exc), headers={'Retry-After': '10'}) from None
 
-    url = (
-        f"https://api.inaturalist.org/v1/observations"
-        f"?taxon_id={body.taxon_id}&per_page=200"
-        f"&nelat={bbox['nelat']}&nelng={bbox['nelng']}"
-        f"&swlat={bbox['swlat']}&swlng={bbox['swlng']}"
-    )
+@app.post('/api/analysis/run')
+async def start_analysis(body: AnalysisRequest, request: Request):
+    return submit(request, lambda progress: analyze(body, progress))
 
-    if url in cache:
-        return cache[url]
+@app.post('/api/discovery/run')
+async def start_discovery(body: DiscoveryRequest, request: Request):
+    return submit(request, lambda progress: run_discovery(body, progress))
 
-    async with httpx.AsyncClient() as client:
-        headers = {}
-        if INATURALIST_API:
-            headers["Authorization"] = f"Bearer {INATURALIST_API}"
+def get_task(request, task_id):
+    task = request.app.state.jobs.get(task_id)
+    if task is None:
+        raise HTTPException(404, detail='Task unavailable. The server may have restarted; run the analysis again.')
+    return task
 
-        response = await client.get(url, headers=headers)
-        response.raise_for_status()
-        data = response.json()
+@app.get('/api/analysis/status/{task_id}')
+def status(task_id: str, request: Request):
+    task = get_task(request, task_id)
+    return {'task_id': task_id, **{k: task[k] for k in ('status', 'progress', 'error')}}
 
-    cache[url] = data
-    return data
+@app.get('/api/analysis/results/{task_id}')
+def results(task_id: str, request: Request):
+    task = get_task(request, task_id)
+    if task['status'] == 'expired':
+        raise HTTPException(410, detail='This task has expired. Run it again.')
+    if task['status'] in ('queued', 'running'):
+        raise HTTPException(202, detail='Analysis is not complete yet.')
+    if task['status'] == 'failed':
+        raise HTTPException(422, detail=task['error'])
+    return task['results']
 
-
-# ---------------------------------------------------------------------------
-# Analysis Module — Async task management
-# ---------------------------------------------------------------------------
-
-# In-memory store for analysis tasks (task_id -> status/results)
-analysis_tasks = {}
-
-
-class AnalysisRequest(BaseModel):
-    species: str = "Orcinus orca"
-    taxon_id: Optional[int] = None
-    method: str = "glm"  # "glm", "rf", "cca", or "rustic"
-    limit: int = 500
-    target_lat: Optional[float] = None
-    target_lng: Optional[float] = None
-    target_date: Optional[str] = None
-    radius_km: Optional[float] = 5.0
-    polygon: Optional[GeoJSONPolygon] = None
-
-
-async def _run_analysis_pipeline(task_id: str, species: str, method: str, limit: int, taxon_id: Optional[int] = None):
-    """
-    Background coroutine that runs the full analysis pipeline and stores
-    results in the analysis_tasks dict.
-    """
-    try:
-        def update_progress(msg: str):
-            analysis_tasks[task_id]["progress"] = msg
-            logger.info("[%s] %s", task_id[:8], msg)
-
-        analysis_tasks[task_id]["status"] = "running"
-
-        # Step 1: Build aligned dataset
-        dataset = await build_aligned_dataset(
-            species=species,
-            taxon_id=taxon_id,
-            limit=limit,
-            progress_callback=update_progress,
-        )
-
-        df = dataset["dataframe"]
-        sst_warnings = dataset["sst_warnings"]
-        stats = dataset["stats"]
-
-        # Step 2: Compute correlations
-        update_progress("Computing Pearson & Spearman correlations...")
-        correlations = compute_correlations(df)
-
-        # Step 3: Compute VIF
-        update_progress("Checking multicollinearity (VIF)...")
-        vif = compute_vif(df)
-
-        # Step 4: Fit the selected model
-        model_result = {}
-        if method == "glm":
-            update_progress("Fitting Logistic GLM...")
-            model_result = fit_glm(df)
-        elif method == "rf":
-            update_progress("Training Random Forest (200 trees)...")
-            model_result = fit_random_forest(df)
-        elif method == "cca":
-            update_progress("Running Canonical Correspondence Analysis...")
-            model_result = fit_cca(df)
-        else:
-            raise ValueError(f"Unknown method: {method}")
-
-        update_progress("Generating AI Interpretation...")
-        
-        results_data = {
-            "dataset_stats": stats,
-            "correlations": correlations,
-            "vif": vif,
-            "model": model_result,
-            "sst_warnings": sst_warnings[:10],
-        }
-        
-        interpretation_text = generate_interpretation(species, results_data)
-        results_data["interpretation"] = interpretation_text
-
-        update_progress("Analysis complete!")
-
-        analysis_tasks[task_id]["status"] = "complete"
-        analysis_tasks[task_id]["results"] = results_data
-
-    except RateLimitError as exc:
-        logger.error("Rate limit hit for task %s: %s", task_id, exc)
-        analysis_tasks[task_id]["status"] = "error"
-        analysis_tasks[task_id]["error"] = (
-            "API quota exceeded: " + str(exc)
-        )
-
-    except Exception as exc:
-        logger.exception("Analysis failed for task %s", task_id)
-        analysis_tasks[task_id]["status"] = "error"
-        analysis_tasks[task_id]["error"] = str(exc)
-
-
-@app.post("/api/analysis/run")
-async def run_analysis(request: AnalysisRequest):
-    """
-    Start an ecological analysis as a background task.
-
-    :param request: AnalysisRequest with species, method, and limit.
-    :returns: Dict with task_id to poll for status/results.
-    """
-    task_id = str(uuid.uuid4())
-
-    analysis_tasks[task_id] = {
-        "status": "queued",
-        "progress": "Initializing...",
-        "species": request.species,
-        "method": request.method,
-        "limit": request.limit,
-        "results": None,
-        "error": None,
-    }
-
-    # Launch the pipeline as an asyncio task
-    if request.target_lat is not None and request.target_lng is not None and request.target_date:
-        asyncio.create_task(
-            run_prediction_pipeline(task_id, request.species, request.taxon_id, request.target_lat, request.target_lng, request.target_date, request.radius_km, request.limit, request.method, analysis_tasks)
-        )
-    else:
-        asyncio.create_task(
-            _run_analysis_pipeline(task_id, request.species, request.method, request.limit, request.taxon_id)
-        )
-
-    return {"task_id": task_id}
-
-
-@app.get("/api/analysis/status/{task_id}")
-def get_analysis_status(task_id: str):
-    """
-    Check the status and progress of a running analysis task.
-    """
-    task = analysis_tasks.get(task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    return {
-        "task_id": task_id,
-        "status": task["status"],
-        "progress": task["progress"],
-        "error": task.get("error"),
-    }
-
-
-@app.get("/api/analysis/results/{task_id}")
-def get_analysis_results(task_id: str):
-    """
-    Retrieve the full results of a completed analysis task.
-    """
-    task = analysis_tasks.get(task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    if task["status"] == "running":
-        raise HTTPException(status_code=202, detail="Analysis still running")
-
-    if task["status"] == "error":
-        raise HTTPException(status_code=500, detail=task.get("error", "Unknown error"))
-
-    return task["results"]
-
-
-# ---------------------------------------------------------------------------
-# Static file mounts — must come LAST
-# ---------------------------------------------------------------------------
-
-# Mount resources directory (icons, images) — before frontend catch-all
-resources_path = os.path.join(os.path.dirname(__file__), "..", "resources")
-if os.path.exists(resources_path):
-    app.mount("/resources", StaticFiles(directory=resources_path), name="resources")
-
-# Mount frontend directory if it exists — must come LAST so API routes take priority
-frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
-if os.path.exists(frontend_path):
-    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
+app.mount('/resources', StaticFiles(directory=ROOT / 'resources'), name='resources')
+app.mount('/', StaticFiles(directory=ROOT / 'frontend', html=True), name='frontend')

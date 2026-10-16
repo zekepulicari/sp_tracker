@@ -1,0 +1,73 @@
+{
+  "type": "synthetic_acceptance_example",
+  "environment": "marine",
+  "notice": "Artificial test data, not field observations. Metrics demonstrate validation behavior, not ecological predictive performance.",
+  "seed": 42,
+  "records": 240,
+  "model": {
+    "model_type": "Regularized logistic regression",
+    "features": [
+      "sst",
+      "wind_speed",
+      "wave_height",
+      "ocean_current_velocity",
+      "season_sin",
+      "season_cos"
+    ],
+    "variable_importance": {},
+    "validation": {
+      "spatial": {
+        "model": {
+          "auc": 1.0,
+          "balanced_accuracy": 1.0
+        },
+        "seasonal_baseline": {
+          "auc": 0.5,
+          "balanced_accuracy": 0.5
+        },
+        "improves_baseline": true,
+        "n_train": 180,
+        "n_test": 60
+      },
+      "chronological": {
+        "model": {
+          "auc": 1.0,
+          "balanced_accuracy": 1.0
+        },
+        "seasonal_baseline": {
+          "auc": 0.5,
+          "balanced_accuracy": 0.5
+        },
+        "improves_baseline": true,
+        "n_train": 192,
+        "n_test": 48,
+        "cutoff": "2023-04-07"
+      },
+      "experimental": false,
+      "ranking_allowed": true
+    },
+    "bounds": {
+      "sst": [
+        4.070942324316698,
+        22.765204565368148
+      ],
+      "wind_speed": [
+        5.873523446390514,
+        22.48584062480597
+      ],
+      "wave_height": [
+        5.211479390199057,
+        24.35770735873507
+      ],
+      "ocean_current_velocity": [
+        4.138811248294449,
+        23.195347453191665
+      ]
+    },
+    "n_records": 240,
+    "reference_quartiles": [
+      0.004458162441567699,
+      0.995964560519603
+    ]
+  }
+}

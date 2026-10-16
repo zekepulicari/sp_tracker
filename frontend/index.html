@@ -1,387 +1,62 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Species Tracker</title>
-    <meta name="description" content="Track species sightings worldwide using real-time iNaturalist data with interactive maps and density grids.">
-    <link rel="icon" type="image/png" href="/resources/images/track_icon.png">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Species Tracker · Plan a wildlife visit</title>
+  <meta name="description" content="Explore seasonal wildlife sightings and environmental evidence for your next visit.">
+  <link rel="icon" href="/resources/images/track_icon.png">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-    <!-- Top Navigation Bar -->
-    <nav id="top-nav">
-        <a href="#" id="nav-brand" data-tab="home" title="Back to map">
-            <img src="/resources/images/track_icon.png" class="brand-icon" style="height: 24px; width: 24px; filter: brightness(0) invert(1);" alt="Species Tracker Icon">
-            <span class="brand-text">Species Tracker</span>
-        </a>
-        <div id="nav-tabs">
-            <button class="nav-tab" data-tab="purpose" id="tab-purpose">
-                <span class="tab-icon"><img src="/resources/images/target_icon.png" width="18" height="18" style="vertical-align: middle;"></span>
-                Purpose
-            </button>
-            <button class="nav-tab" data-tab="docs" id="tab-docs">
-                <span class="tab-icon"><img src="/resources/images/open-book_icon.png" width="18" height="18" style="vertical-align: middle;"></span>
-                Documentation
-            </button>
-            <button class="nav-tab" data-tab="resources" id="tab-resources">
-                <span class="tab-icon"><img src="/resources/images/box_icon.png" width="18" height="18" style="vertical-align: middle;"></span>
-                Resources
-            </button>
-        </div>
-        <div id="nav-spacer"></div>
-    </nav>
-
-    <!-- Home View: The Map (default) -->
-    <section id="page-home" class="tab-page" style="display: flex;">
-        <main id="map-container">
-            <div id="map"></div>
-
-            <!-- Vertical Measurement Toolbar -->
-            <div id="map-toolbar">
-                <button id="tool-ruler" class="map-tool-btn" title="Measure distance (2 points)" aria-label="Ruler tool">
-                    <img src="/resources/images/ruler_icon.png" alt="Ruler" width="22" height="22">
-                </button>
-            </div>
-        </main>
-        <aside id="assistant-panel">
-            <!-- Ecological Analysis Header -->
-            <div class="analysis-header">
-                <div class="analysis-persona-badge">
-                    <span class="persona-icon"></span>
-                    <div class="persona-info">
-                        <span class="persona-title">Ecological Analyst</span>
-                        <span class="persona-subtitle">SDM · Correlation · GLM · CCA</span>
-                    </div>
-                    <span class="persona-status online" id="persona-status"></span>
-                </div>
-            </div>
-
-
-
-            <!-- Measurement Results (shown by tools.js) -->
-            <div id="measurement-results"></div>
-
-            <!-- Analysis Module Controls -->
-            <div class="analysis-module">
-                <div class="module-section">
-                    <label class="module-label" for="analysis-species">Target Species</label>
-                    <div class="autocomplete-container">
-                        <input type="text" id="analysis-species" class="module-input"
-                               value="Orcinus orca" placeholder="e.g. Orcinus orca" autocomplete="off" />
-                        <ul id="species-autocomplete-list" class="autocomplete-list"></ul>
-                    </div>
-                </div>
-
-                <div class="module-section">
-                    <label class="module-label" for="analysis-limit" style="display: flex; align-items: center; justify-content: space-between;">
-                        <span>Sample Size: <span id="limit-value">500</span></span>
-                        <span class="info-tooltip-trigger" data-tooltip="The number of historical observation records fetched from OBIS. An equal number of random pseudo-absence points will be generated to train the model. Larger values improve accuracy but take longer to run.">i</span>
-                    </label>
-                    <input type="range" id="analysis-limit" class="module-range"
-                           min="100" max="2000" step="100" value="500" />
-                    <div class="range-labels">
-                        <span>100</span>
-                        <span>2000</span>
-                    </div>
-                </div>
-
-                <div class="module-section">
-                    <label class="module-label">Analysis Mode</label>
-                    <input type="hidden" id="analysis-method" value="glm" />
-                    <div class="segmented-control" id="analysis-tabs" role="tablist">
-                        <button type="button" class="segmented-tab active" data-method="glm" role="tab" aria-selected="true">Forecast</button>
-                        <button type="button" class="segmented-tab" data-method="rustic" role="tab" aria-selected="false">Historical Profile</button>
-                        <button type="button" class="segmented-tab" data-method="rf" role="tab" aria-selected="false">Key Factors</button>
-                    </div>
-                    <div id="method-explanation" class="method-explanation">
-                        <span id="method-explanation-text">Predicts sighting probability using forecasted sea and weather conditions.</span>
-                        <a href="#doc-methods" id="link-method-docs" class="method-docs-link">Learn more in Documentation &rarr;</a>
-                    </div>
-                </div>
-
-                <div class="module-section" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(88,129,87,0.3);">
-                    <label class="module-label" id="target-section-title" style="color: var(--color-accent-primary);">Target Prediction</label>
-                    <div id="target-section-subtitle" style="font-size: 0.8em; opacity: 0.8; margin-bottom: 8px;">
-                        Select a date and location to calculate predictive encounter probabilities based on weather forecasts.
-                    </div>
-                    
-                    <div id="prediction-date-group">
-                        <label class="module-label" for="prediction-date" id="prediction-date-label">Target Date</label>
-                        <input type="date" id="prediction-date" class="module-input" style="margin-bottom: 10px;" />
-                    </div>
-                    
-                    <button id="btn-pick-location" class="btn-analysis" style="background-color: var(--color-nav-bg); margin-bottom: 5px; opacity: 0.9;">
-                        <svg class="btn-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: middle; margin-right: 6px;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
-                        Pick Location on Map
-                    </button>
-                    <div id="prediction-location-display" style="font-size: 0.8em; color: var(--color-accent-primary); font-weight: 600; margin-bottom: 10px; text-align: center; height: 16px;">
-                        No location selected
-                    </div>
-                </div>
-
-                <button id="btn-run-analysis" class="btn-analysis">
-                    <svg class="btn-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: middle; margin-right: 6px;"><path d="M8 5v14l11-7z"/></svg>
-                    Run Analysis
-                </button>
-            </div>
-
-            <!-- Analysis Results Area -->
-            <div id="analysis-results"></div>
-
-            <!-- Persona Definition (hidden, machine-readable) -->
-            <script type="application/json" id="persona-definition">
-            {
-                "role": "Senior Ecological Data Scientist & Spatial Modeler",
-                "identity": "Expert in spatial statistics, Species Distribution Modeling (SDM), and API data wrangling for marine ecology.",
-                "goals": {
-                    "data_ingestion": {
-                        "species_occurrences": ["OBIS API"],
-                        "weather_environment": ["Open-Meteo Historical", "Open-Meteo Marine"]
-                    },
-                    "exploratory_correlation": "Pearson and Spearman rank correlations between species presence and environmental variables.",
-                    "probability_modeling_sdm": "GLM logistic regression and Random Forest for encounter probability.",
-                    "multivariate_analysis": "CCA to relate species composition to environmental gradients."
-                },
-                "constraints": {
-                    "multicollinearity": "VIF check before modeling.",
-                    "absence_data": "Pseudo-absence generation for valid SDM training.",
-                    "data_alignment": "Strict spatio-temporal alignment via Open-Meteo.",
-                    "sst_validation": "Cross-validate Open-Meteo SST against OBIS SST."
-                }
-            }
-            </script>
-        </aside>
+  <a class="skip-link" href="#workspace-panel">Skip map and go to controls</a>
+  <header><a class="brand" href="#" id="nav-brand"><img src="/resources/images/track_icon.png" alt="">Species Tracker</a>
+    <nav aria-label="Main navigation"><button data-page="home" aria-current="page">Explore</button><button data-page="purpose">Purpose</button><button data-page="docs">Methods</button><button data-page="resources">Resources</button></nav>
+  </header>
+  <main id="page-home" class="page workspace">
+    <section class="map-area" aria-label="Wildlife sightings map">
+      <div id="map" aria-label="Map; use the location button or coordinates to select a study location"></div>
+      <div class="map-tools"><button id="tool-ruler" title="Measure approximate map distance" aria-label="Measure distance">↔</button></div>
+      <p id="map-status" class="map-status" role="status">Grid tiles show recorded sightings. Zoom in for a capped sample of observations.</p>
     </section>
-
-    <!-- Tab Content: Documentation -->
-    <section id="page-docs" class="tab-page" style="display: none;">
-        <div class="docs-page">
-            <h1>Statistical Analysis Documentation</h1>
-            <p class="docs-subtitle">A simple guide to the statistical methods and models used in Species Tracker.</p>
-
-            <ul class="docs-index">
-                <li><a href="#doc-methods">Analysis Modes (Forecast, Historical Profile, Key Factors)</a></li>
-                <li><a href="#doc-correlation">Correlation (Pearson & Spearman)</a></li>
-                <li><a href="#doc-vif">Multicollinearity (VIF)</a></li>
-                <li><a href="#doc-glm">Generalized Linear Model (GLM)</a></li>
-                <li><a href="#doc-rf">Random Forest</a></li>
-                <li><a href="#doc-cca">Canonical Correspondence Analysis (CCA)</a></li>
-            </ul>
-
-            <div class="docs-content">
-                <div class="docs-section" id="doc-methods">
-                    <h2>Analysis Modes: Methods, Variables & Calculations</h2>
-                    <span class="docs-badge">Comprehensive Guide</span>
-                    <p style="margin-bottom: 12px; font-size: 0.9em; opacity: 0.9;">
-                        The application offers three distinct statistical and machine learning modes to analyze species occurrence data. Each mode serves a unique ecological purpose:
-                    </p>
-                    <ul>
-                        <li>
-                            <strong>1. Forecast Mode (GLM Logistic Regression):</strong>
-                            <p><strong>Goal:</strong> Predicts sighting probability at a specific coordinate and date based on forecasted environmental conditions.</p>
-                            <p><strong>Calculation:</strong> Dynamically gathers local sightings (presences) within 5–50 km, generates pseudo-absences, and trains a Generalized Linear Model (Logistic Regression). It retrieves the Open-Meteo forecast for your target date and calculates encounter probability: <em>P(Y=1) = 1 / (1 + e<sup>-logit</sup>)</em>.</p>
-                            <p><strong>Variables Used:</strong></p>
-                            <ul style="margin-top: 4px; margin-bottom: 8px;">
-                                <li><strong>Sea Surface Temperature (SST)</strong> [°C] — Open-Meteo Marine</li>
-                                <li><strong>10m Wind Speed</strong> [km/h] — Open-Meteo Weather</li>
-                                <li><strong>2m Air Temperature</strong> [°C] — Open-Meteo Weather</li>
-                                <li><strong>Precipitation</strong> [mm] — Open-Meteo Weather</li>
-                                <li><strong>Wave Height</strong> [m] — Open-Meteo Marine</li>
-                                <li><strong>Ocean Current Velocity</strong> [km/h] — Open-Meteo Marine</li>
-                                <li><strong>Month of the Year</strong> [1–12] — Temporal cycle</li>
-                            </ul>
-                        </li>
-                        <li>
-                            <strong>2. Historical Profile Mode (Rustic Historical Base Rate):</strong>
-                            <p><strong>Goal:</strong> Provides an empirical seasonal baseline to test whether weather forecasts predict presence better than historical monthly seasonality alone.</p>
-                            <p><strong>Calculation:</strong> Deliberately excludes all atmospheric and oceanic forecasts. Fits a logistic baseline model using only the target calendar month derived from historical sightings in the local search radius.</p>
-                            <p><strong>Variables Used:</strong></p>
-                            <ul style="margin-top: 4px; margin-bottom: 8px;">
-                                <li><strong>Month of the Year</strong> [1–12] — Historical observation seasonality</li>
-                            </ul>
-                        </li>
-                        <li>
-                            <strong>3. Key Factors Mode (Random Forest Variable Importance):</strong>
-                            <p><strong>Goal:</strong> Identifies which environmental dimensions exert the greatest ecological control over species presence in a specific region.</p>
-                            <p><strong>Calculation:</strong> Trains an ensemble of 200 decision trees (Random Forest) on local presences and pseudo-absences. Computes normalized Gini feature importance (Mean Decrease in Impurity) to rank variables from most to least influential. Does not depend on a future date forecast.</p>
-                            <p><strong>Variables Used:</strong></p>
-                            <ul style="margin-top: 4px; margin-bottom: 8px;">
-                                <li><strong>Sea Surface Temperature (SST)</strong> [°C]</li>
-                                <li><strong>10m Wind Speed</strong> [km/h]</li>
-                                <li><strong>2m Air Temperature</strong> [°C]</li>
-                                <li><strong>Precipitation</strong> [mm]</li>
-                                <li><strong>Wave Height</strong> [m]</li>
-                                <li><strong>Ocean Current Velocity</strong> [km/h]</li>
-                                <li><strong>Month of the Year</strong> [1–12]</li>
-                            </ul>
-                        </li>
-                                <li><strong>10m Wind Speed</strong> [km/h] — Flags adverse surface turbulence or gales</li>
-                                <li><strong>Wave Height</strong> [m] — Compares swell intensity against tolerable limits</li>
-                                <li><strong>Ocean Current Velocity</strong> [km/h] — Evaluates hydrodynamic drift tolerances</li>
-                            </ul>
-                        </li>
-                    </ul>
-                </div>
-
-                <div class="docs-section" id="doc-correlation">
-                    <h2>Correlation (Pearson & Spearman)</h2>
-                    <span class="docs-badge">Exploratory Analysis</span>
-                    <ul>
-                        <li><strong>What it is:</strong> Correlation measures whether two variables change together. For example, does the frequency of species sightings increase when sea surface temperature rises?</li>
-                        <li><strong>Pearson Correlation:</strong> Measures linear relationships, essentially checking if the two variables can be described by a straight line.</li>
-                        <li><strong>Spearman's Rank Correlation:</strong> Measures monotonic relationships. This is useful for identifying general upward or downward trends, even if the relationship is not perfectly linear (e.g., a curve).</li>
-                        <li><strong>Output:</strong> Both methods provide a correlation coefficient (showing the strength and direction of the relationship) and a p-value (indicating statistical significance).</li>
-                    </ul>
-                    <a href="https://en.wikipedia.org/wiki/Correlation_and_dependence" target="_blank" class="docs-link">Learn more about Correlation ↗</a>
-                </div>
-
-                <div class="docs-section" id="doc-vif">
-                    <h2>Multicollinearity (VIF)</h2>
-                    <span class="docs-badge">Data Quality Check</span>
-                    <ul>
-                        <li><strong>What it is:</strong> Variance Inflation Factor (VIF) is a diagnostic tool used to detect multicollinearity. This occurs when two or more predictor variables (like Air Temperature and Sea Surface Temperature) are highly correlated with each other.</li>
-                        <li><strong>Why it matters:</strong> If variables are too similar, they provide redundant information, which can make statistical models unstable and their coefficients difficult to interpret.</li>
-                        <li><strong>How to interpret:</strong> VIF quantifies how much the variance of a regression coefficient is inflated due to this redundancy. A VIF value above 5 or 10 typically indicates problematic multicollinearity, suggesting that one of the redundant variables should be removed.</li>
-                    </ul>
-                    <a href="https://en.wikipedia.org/wiki/Variance_inflation_factor" target="_blank" class="docs-link">Learn more about VIF ↗</a>
-                </div>
-
-                <div class="docs-section" id="doc-glm">
-                    <h2>Generalized Linear Model (GLM)</h2>
-                    <span class="docs-badge">Binary Classification</span>
-                    <ul>
-                        <li><strong>What it is:</strong> In this application, we use a specific type of GLM known as Logistic Regression. It calculates the probability of a binary outcome—in our case, the presence (1) or absence (0) of a species.</li>
-                        <li><strong>How it works:</strong> The model takes environmental conditions (such as water temperature and current velocity) at locations where the species was observed, and compares them to randomly generated "pseudo-absence" points.</li>
-                        <li><strong>Output:</strong> It fits a logistic curve to these data points, allowing us to predict the probability of encountering the species given a specific set of environmental conditions.</li>
-                    </ul>
-                    <a href="https://en.wikipedia.org/wiki/Generalized_linear_model" target="_blank" class="docs-link">Learn more about GLM ↗</a>
-                </div>
-
-                <div class="docs-section" id="doc-rf">
-                    <h2>Random Forest</h2>
-                    <span class="docs-badge">Machine Learning / Ensemble</span>
-                    <ul>
-                        <li><strong>What it is:</strong> Random Forest is a powerful machine learning algorithm that creates an "ensemble" of many individual decision trees. Each tree is trained on a random subset of the data and a random subset of the predictor variables.</li>
-                        <li><strong>How it works:</strong> When making a prediction, the Random Forest aggregates the "votes" from all of its constituent trees. This makes it highly robust against overfitting.</li>
-                        <li><strong>Advantages:</strong> It is exceptionally capable of capturing complex, non-linear interactions between environmental variables (for instance, if high wind speeds only matter when the water is warm).</li>
-                        <li><strong>Feature Importance:</strong> It also provides a measure of "feature importance," revealing which environmental factors are most influential in predicting species presence.</li>
-                    </ul>
-                    <a href="https://en.wikipedia.org/wiki/Random_forest" target="_blank" class="docs-link">Learn more about Random Forest ↗</a>
-                </div>
-
-                <div class="docs-section" id="doc-cca">
-                    <h2>Canonical Correspondence Analysis (CCA)</h2>
-                    <span class="docs-badge">Multivariate Ecology</span>
-                    <ul>
-                        <li><strong>What it is:</strong> Canonical Correspondence Analysis (CCA) is a multivariate ordination technique frequently used in community ecology. Instead of just predicting presence or absence, CCA relates species composition directly to environmental gradients.</li>
-                        <li><strong>How it works:</strong> It projects the species occurrence data onto axes that are constrained to be linear combinations of the environmental variables.</li>
-                        <li><strong>Interpretation:</strong> By doing so, CCA visually and statistically highlights the specific environmental "niche" or preferences of the species, showing how different environmental factors structure the biological community.</li>
-                    </ul>
-                    <a href="https://en.wikipedia.org/wiki/Canonical_correspondence_analysis" target="_blank" class="docs-link">Learn more about CCA ↗</a>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Tab Content: Purpose -->
-    <section id="page-purpose" class="tab-page" style="display: none;">
-        <div class="docs-page">
-            <h1 style="display: flex; align-items: center; gap: 12px;">
-                <img src="/resources/images/target_icon.png" width="32" height="32"> 
-                Purpose
-            </h1>
-            <div style="margin-top: 24px; font-size: 1.05em; line-height: 1.6; color: var(--color-bg-dark);">
-                <p style="margin-bottom: 16px;">This begins with a story. I took a plane to see orcas for the first time. I spent hours sitting on a beach, constantly drinking hot water so I wouldn't freeze in the low temperatures. But days passed, and I saw nothing, even though I had taken the tides and the time of year into account based on professional guidance.</p>
-                <p style="margin-bottom: 16px;">That was my motivation to create this project. I needed the power of statistics and machine learning, fed by historical observations and additional variables. I knew that other factors were important, like the wind, which I hadn't been able to take into account at the time.</p>
-                <p style="margin-bottom: 24px;">Please, feel free to create issues if you saw an improvement opportunity.</p>
-                <p>Love you.</p>
-                <p><strong>Zeke</strong></p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Tab Content: Resources -->
-    <section id="page-resources" class="tab-page" style="display: none;">
-        <div class="resources-page">
-            <h1>Resources</h1>
-            <p class="resources-subtitle">Technologies, APIs, and data sources powering Species Tracker.</p>
-
-            <ul class="resources-list">
-                <li>
-                    <span class="resource-name">iNaturalist API</span>
-                    <span class="resource-desc">— Real-time biodiversity observations and density grid tiles</span>
-                    <a href="https://api.inaturalist.org/v1/docs/" target="_blank" rel="noopener noreferrer">api.inaturalist.org ↗</a>
-                </li>
-                <li>
-                    <span class="resource-name">OBIS API</span>
-                    <span class="resource-desc">— Ocean Biodiversity Information System: historical marine species occurrence data</span>
-                    <a href="https://api.obis.org/v3/" target="_blank" rel="noopener noreferrer">api.obis.org ↗</a>
-                </li>
-                <li>
-                    <span class="resource-name">Open-Meteo</span>
-                    <span class="resource-desc">— Historical weather, marine conditions (SST, waves, currents) — free, no API key</span>
-                    <a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener noreferrer">open-meteo.com ↗</a>
-                </li>
-                <li>
-                    <span class="resource-name">Leaflet.js</span>
-                    <span class="resource-desc">— Interactive map rendering, markers, and popups</span>
-                    <a href="https://leafletjs.com/" target="_blank" rel="noopener noreferrer">leafletjs.com ↗</a>
-                </li>
-                <li>
-                    <span class="resource-name">OpenStreetMap</span>
-                    <span class="resource-desc">— Standard basemap tiles for the default map layer</span>
-                    <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener noreferrer">openstreetmap.org ↗</a>
-                </li>
-                <li>
-                    <span class="resource-name">Esri World Imagery</span>
-                    <span class="resource-desc">— Satellite imagery for the alternate map layer</span>
-                    <a href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9" target="_blank" rel="noopener noreferrer">arcgis.com ↗</a>
-                </li>
-                <li>
-                    <span class="resource-name">FastAPI</span>
-                    <span class="resource-desc">— Python backend framework serving the API proxy</span>
-                    <a href="https://fastapi.tiangolo.com/" target="_blank" rel="noopener noreferrer">fastapi.tiangolo.com ↗</a>
-                </li>
-                <li>
-                    <span class="resource-name">HTTPX</span>
-                    <span class="resource-desc">— Async HTTP client for server-side API requests</span>
-                    <a href="https://www.python-httpx.org/" target="_blank" rel="noopener noreferrer">python-httpx.org ↗</a>
-                </li>
-                <li>
-                    <span class="resource-name">cachetools</span>
-                    <span class="resource-desc">— In-memory TTL caching for API responses</span>
-                    <a href="https://pypi.org/project/cachetools/" target="_blank" rel="noopener noreferrer">pypi.org ↗</a>
-                </li>
-                <li>
-                    <span class="resource-name">Inter (Google Fonts)</span>
-                    <span class="resource-desc">— Modern sans-serif typeface used across the UI</span>
-                    <a href="https://fonts.google.com/specimen/Inter" target="_blank" rel="noopener noreferrer">fonts.google.com ↗</a>
-                </li>
-                <li>
-                    <span class="resource-name">Turf.js</span>
-                    <span class="resource-desc">— Client-side geodesic distance, polygon area, and point-in-polygon calculations for measurement tools</span>
-                    <a href="https://turfjs.org/" target="_blank" rel="noopener noreferrer">turfjs.org ↗</a>
-                </li>
-                <li>
-                    <span class="resource-name">SciPy / Statsmodels / Scikit-Learn</span>
-                    <span class="resource-desc">— Backend statistical analysis: correlations, GLM, Random Forest, VIF</span>
-                    <a href="https://scipy.org/" target="_blank" rel="noopener noreferrer">scipy.org ↗</a>
-                </li>
-            </ul>
-        </div>
-    </section>
-
-    <!-- (Who am I tab removed) -->
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="https://unpkg.com/@turf/turf@7/turf.min.js"></script>
-    <script src="app.js"></script>
-    <script src="tools.js"></script>
-    <script src="analysis.js"></script>
+    <aside id="workspace-panel" tabindex="-1">
+      <div class="panel-heading"><div><p class="eyebrow">Evidence for your next visit</p><h1>Where wildlife meets conditions</h1></div><button id="panel-toggle" aria-expanded="true" aria-controls="panel-body">Collapse</button></div>
+      <div id="panel-body">
+        <div class="workflow" role="group" aria-label="Choose a workflow"><button id="workflow-species" aria-pressed="true">Species outlook</button><button id="workflow-discovery" aria-pressed="false">Animals nearby</button></div>
+        <section id="species-controls" aria-label="Species analysis">
+          <label for="analysis-species">Target animal</label>
+          <div class="autocomplete-container"><input id="analysis-species" type="text" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="species-autocomplete-list" placeholder="Search a scientific or common name"><ul id="species-autocomplete-list" role="listbox" hidden></ul></div>
+          <small id="species-hint">Choose a result to resolve the animal's identity.</small>
+          <div class="field-pair"><div><label for="analysis-environment">Environmental setting</label><select id="analysis-environment"><option value="terrestrial">Terrestrial</option><option value="marine">Marine</option></select></div><div><label for="analysis-method">Analysis</label><select id="analysis-method"><option value="glm">Environmental outlook</option><option value="rustic">Historical profile</option><option value="rf">Key factors</option></select></div></div>
+          <p class="help">Choose the setting explicitly. The app does not infer habitat from the animal's name.</p>
+          <label for="prediction-date">Target date</label><input type="date" id="prediction-date" required>
+          <label for="analysis-limit">Maximum sightings: <output id="limit-value">200</output></label><input id="analysis-limit" type="range" min="100" max="500" step="100" value="200">
+          <small>Local evidence is capped at this size. Larger samples take longer.</small>
+          <button id="btn-pick-location" class="secondary">Pick location on map</button>
+          <div class="field-pair"><div><label for="target-lat">Latitude</label><input id="target-lat" type="number" min="-90" max="90" step="any" placeholder="e.g. -34.60"></div><div><label for="target-lng">Longitude</label><input id="target-lng" type="number" min="-180" max="180" step="any" placeholder="e.g. -58.38"></div></div>
+          <button id="btn-use-coordinates" class="text-button">Use these coordinates</button>
+          <p id="prediction-location-display" class="help">No study location selected.</p>
+          <button id="btn-run-analysis" class="primary">Examine evidence</button>
+          <button id="btn-compare-days" class="secondary" hidden>When should I go? · next seven days</button>
+        </section>
+        <section id="discovery-controls" aria-label="Seasonal animal discovery" hidden>
+          <h2>What could I look for here?</h2><p class="help">Draw an area and choose a date. We rank wild animals recorded there in the same month across the preceding ten years.</p>
+          <div class="field-pair"><button id="tool-area" class="secondary">Draw area</button><button id="clear-area" class="secondary">Clear area</button></div>
+          <p id="polygon-status" class="help">No area selected. Add vertices; click the first point or press Enter to finish. Escape cancels drawing.</p>
+          <label for="discovery-date">Visit date</label><input type="date" id="discovery-date" required>
+          <label for="animal-group">Animal group</label><select id="animal-group"><option value="all">All wild animals</option><option value="birds">Birds</option><option value="mammals">Mammals</option><option value="reptiles">Reptiles</option><option value="amphibians">Amphibians</option><option value="fish">Ray-finned fish</option><option value="insects">Insects</option><option value="arachnids">Arachnids</option><option value="mollusks">Mollusks</option></select>
+          <button id="btn-discover" class="primary">Find up to 10 animals</button>
+          <p class="help">Ranking reflects seasonal recording frequency, not guaranteed encounters. The day's weather is separate context.</p>
+        </section>
+        <p id="analysis-progress" class="progress" role="status" aria-live="polite"></p>
+        <section id="analysis-results" aria-label="Evidence results" aria-busy="false"></section>
+      </div>
+    </aside>
+  </main>
+  <main id="page-purpose" class="page article" hidden><h1>Plan a wildlife visit with evidence</h1><p>Species Tracker connects a place and a date with recorded wildlife sightings and environmental conditions. It helps you identify animals to look for and compare modeled conditions for a selected species.</p><h2>Three focused questions</h2><ol><li>What animals have been recorded here in this season?</li><li>How do conditions look for one animal?</li><li>Which supported upcoming day has the most favorable modeled conditions?</li></ol><h2>What the evidence can say</h2><p>Community sightings are observations, not surveys of every animal. More records can mean more observers, easier access, or easier identification. A classifier trained on sightings and background samples does not establish the probability that you will see an animal.</p><p>This portfolio project demonstrates GIS, data ingestion, model validation, asynchronous APIs, and an accessible web interface. It does not provide navigation or field-safety advice.</p></main>
+  <main id="page-docs" class="page article" hidden><h1>Methods and limitations</h1><h2>Animals nearby</h2><p>Research-grade, georeferenced wild-animal sightings are fetched from iNaturalist for the preceding ten years ending yesterday. Only the selected calendar month is included. Polygon filtering includes the boundary. Subspecies are consolidated into their species.</p><p>Species are ordered by sighting count, then distinct observation dates, then taxon ID. Counts are complete for the requested query or the query fails with a request to narrow the area. A sparse or empty list is not evidence that other animals are absent.</p><h2>Historical profile</h2><p>A monthly chart summarizes a capped local sightings sample. It includes years represented and source dates, and does not estimate successful visits. The study radius expands from 5 km up to 50 km when sightings are sparse.</p><h2>Environmental analysis</h2><p>Terrestrial analysis uses daily mean air temperature and wind speed, daily total precipitation, and sine/cosine seasonality. Marine analysis uses daily mean sea surface temperature, wind speed, waves, ocean current velocity, and the same cyclic seasonality. Hourly UTC data is aggregated identically for training and forecasts; incomplete days are excluded.</p><p>Background samples use a fixed seed and remain inside the same WGS84 geodesic study circle. They represent environmental availability, not confirmed absences. Regularized logistic regression provides an experimental outlook; Random Forest shows modeled associations through feature importance.</p><h2>Validation and day comparisons</h2><p>Spatial groups are approximately 10 km cells kept intact across dates. A separate chronological holdout uses the latest dates where sample sizes permit. Each evaluation compares against a cyclic seasonality-only classifier. A day ranking requires both holdouts to outperform that baseline, at least two complete dates inside the observed training ranges, and differing model scores.</p><p>Days with missing data or conditions outside the training range are not ranked. Forecast coverage varies by source; this release requests at most seven days, using only supported returned data. Dates outside the forecast window show the historical profile without synthetic weather.</p><h2>Geometry, sources, and AI</h2><p>WGS84 coordinates are validated server-side with Shapely. PyProj computes ellipsoidal distances and areas. Polygons must have 3–100 vertices, no holes, no crossing edges, and cannot cross the antimeridian.</p><p>Marine SST and currents are requested only from January 2022 onward; archive weather has a several-day delay. Data resolution and coastal coverage can limit conclusions. Every result records completeness, timestamps, excluded records, model version, and source identifiers.</p><p>Optional Gemini summaries use supplied evidence; model limitations and the deterministic summary remain authoritative. AI failure does not discard results. Technical scores are classifier diagnostics, never encounter percentages.</p></main>
+  <main id="page-resources" class="page article" hidden><h1>Resources</h1><p>Primary sources and libraries used in this release.</p><ul class="resource-list"><li><a href="https://api.inaturalist.org/v1/docs/">iNaturalist API</a> — sightings and resolved taxonomy. Observation photos retain contributor attribution and licensing.</li><li><a href="https://open-meteo.com/en/docs">Open-Meteo</a> — weather forecasts and historical weather.</li><li><a href="https://open-meteo.com/en/docs/marine-weather-api">Open-Meteo Marine</a> — sea temperature, waves, and currents.</li><li><a href="https://leafletjs.com/">Leaflet</a> — interactive map.</li><li><a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> — basemap.</li><li><a href="https://www.arcgis.com/">Esri World Imagery</a> — satellite basemap.</li><li><a href="https://fastapi.tiangolo.com/">FastAPI</a>, <a href="https://docs.pydantic.dev/">Pydantic</a>, <a href="https://www.uvicorn.org/">Uvicorn</a> — validated APIs and server.</li><li><a href="https://www.python-httpx.org/">HTTPX</a>, <a href="https://cachetools.readthedocs.io/">cachetools</a>, <a href="https://github.com/theskumar/python-dotenv">python-dotenv</a> — service requests, bounded caching, local configuration.</li><li><a href="https://numpy.org/">NumPy</a>, <a href="https://pandas.pydata.org/">Pandas</a>, <a href="https://scikit-learn.org/">scikit-learn</a> — tabular analysis, classifiers, validation.</li><li><a href="https://shapely.readthedocs.io/">Shapely</a>, <a href="https://pyproj4.github.io/pyproj/">PyProj</a> — polygon checks and WGS84 ellipsoidal measurements.</li><li><a href="https://googleapis.github.io/python-genai/">Google Gen AI SDK</a> — optional evidence summaries.</li><li><a href="https://docs.pytest.org/">pytest</a>, <a href="https://nodejs.org/api/test.html">Node.js test runner</a> — regression and frontend workflow tests.</li></ul><p>Track icon: Made by Made, via <a href="https://www.flaticon.com/free-icons/dog">Flaticon</a>.</p></main>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>
