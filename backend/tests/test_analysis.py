@@ -1,11 +1,10 @@
 import asyncio
-import copy
 from datetime import date, timedelta
 import numpy as np
 import pytest
 from analysis.features import aggregate, seasonality, ENVIRONMENTS
 from analysis.geo import validate_polygon, inside, distance_km, background_samples, polygon_area
-from analysis.data_ingestion import environmental_days, fetch_observations, env_cache
+from analysis.data_ingestion import environmental_days, fetch_observations
 from analysis.probability_model import train_model, predict, split_groups
 from upstream import UpstreamError, Budget
 from unittest.mock import AsyncMock
@@ -95,13 +94,15 @@ def test_constant_and_small_classes_rejected():
     with pytest.raises(ValueError,match='constant'):train_model(rows,'terrestrial','glm')
     with pytest.raises(ValueError,match='Insufficient'):train_model(rows[:10],'terrestrial','glm')
 
-def test_rf_importance_and_group_identity():
-    rows=model_records()
-    _,meta=train_model(rows,'terrestrial','rf')
-    assert set(meta['variable_importance'])==set(meta['features'])
+def test_spatial_groups_keep_repeated_locations_together_across_dates():
     import pandas as pd
-    groups=split_groups(pd.DataFrame(rows))
+    groups=split_groups(pd.DataFrame([
+        {'lat':0.01,'lng':0.01,'date':'2023-01-01'},
+        {'lat':0.01,'lng':0.01,'date':'2024-06-01'},
+        {'lat':1,'lng':1,'date':'2023-01-01'},
+    ]))
     assert groups[0]==groups[1]
+    assert groups[0]!=groups[2]
 
 def test_budget_limits():
     budget=Budget(daily=1)

@@ -11,3 +11,13 @@
 - One dependency warning remains: Starlette's compatibility TestClient path deprecates HTTPX 0.x. The pinned dependency set passes in both tested environments.
 
 See `portfolio-cases.md` for reproduction commands and the distinction between live checks and controlled synthetic acceptance examples. GitLab CI repeats the tests and container smoke check; remote runner status must be checked on the merge request.
+
+## Test and guide maintenance · 2026-10-16
+
+The maintained suite now contains **45 backend tests and 9 frontend tests**, all passing locally. The original 47-test release run above remains a historical record, including its Docker checks.
+
+- Removed the standalone health/root smoke test: Docker CI already verifies server startup and the health endpoint, while the frontend is checked in browser workflows.
+- Replaced two retired-method rejection cases with one generic unsupported-method case. Validation coverage remains without coupling tests to deleted features.
+- Consolidated Random Forest importance assertions into the existing full Key Factors pipeline test. Kept a focused spatial grouping test, and made the rendering check assert visible importance bars instead of the absence of a retired heading.
+- Removed unused test imports. Retained analytical, geometry, completeness, queue, persistence, and safe-rendering regression tests.
+- JavaScript syntax and Git whitespace checks passed. Browser navigation to the rewritten Guide was verified; Resources now focuses on sources and credits. No runtime or dependency changes required another Docker build.

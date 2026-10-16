@@ -9,7 +9,7 @@ from jobs import Jobs, BusyError
 PAYLOAD={'species':'Puma concolor','taxon_id':42007,'environment':'terrestrial','target_lat':0,'target_lng':0,'target_date':'2026-10-16'}
 RING=[[0,0],[1,0],[1,1],[0,1],[0,0]]
 
-@pytest.mark.parametrize('change',[{'limit':99},{'limit':501},{'taxon_id':0},{'target_lat':91},{'radius_km':0},{'target_date':'bad'},{'method':'cca'},{'method':'envelope'},{'operation':'compare_days','method':'rf'},{'environment':'unknown'}])
+@pytest.mark.parametrize('change',[{'limit':99},{'limit':501},{'taxon_id':0},{'target_lat':91},{'radius_km':0},{'target_date':'bad'},{'method':'unsupported'},{'operation':'compare_days','method':'rf'},{'environment':'unknown'}])
 def test_invalid_analysis_rejected_before_queue(change):
     with TestClient(app) as client:
         assert client.post('/api/analysis/run',json={**PAYLOAD,**change}).status_code==422

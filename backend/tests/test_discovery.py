@@ -1,11 +1,9 @@
 import asyncio
-from datetime import date
 from unittest.mock import AsyncMock
 import pytest
 from main import DiscoveryRequest
 from analysis.discovery import rank_observations, run_discovery, history_cache, taxa_cache
 from analysis.geo import validate_polygon
-from analysis.data_ingestion import fetch_observations
 from upstream import UpstreamError
 
 RING=[[0,0],[1,0],[1,1],[0,1],[0,0]]

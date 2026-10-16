@@ -64,6 +64,7 @@ def test_key_factors_retains_importance(monkeypatch):
     arrange(monkeypatch,'terrestrial')
     result=run(run_analysis(request(method='rf'),lambda _:None))
     assert result['model']['variable_importance'] and 'days' not in result
+    assert set(result['model']['variable_importance'])==set(result['model']['features'])
 
 
 def test_ai_missing_or_exception_preserves_evidence(monkeypatch):

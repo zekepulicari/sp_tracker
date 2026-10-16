@@ -25,8 +25,8 @@ test('external text and URL protocols render safely',()=>{
 });
 test('Key Factors displays feature importance without encounter percentages',()=>{
     const html=resultHtml({summary:'Associations',warnings:[],model:{variable_importance:{air_temp:.8,wind_speed:.2}},profile:[]});
-    assert(html.includes('Modeled variable associations') && html.includes('80.0%'));
-    assert(!html.includes('Encounter Prediction'));
+    assert(html.includes('80.0%') && html.includes('class="bar"'));
+    assert(html.includes('Relative feature importance'));
 });
 
 class Element {

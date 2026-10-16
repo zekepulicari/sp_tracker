@@ -33,6 +33,8 @@ Docker Desktop/Engine must be running. A recent Docker Compose supports optional
 2. **Species outlook:** select a resolved animal from autocomplete, explicitly choose Terrestrial or Marine, then choose a point/date and examine evidence. Coordinates are also available for keyboard users. Historical Profile shows monthly sightings; Key Factors displays Random Forest importance.
 3. **When should I go?:** after an environmental logistic analysis with a usable model, compare up to seven supported days using that same model. Ranking is withheld if independent validation does not beat the seasonal baseline or conditions fall outside the training range.
 
+The in-app **Guide** explains these workflows, how to interpret results, and what is saved. Implementation details and reproduction instructions live in this README and `docs/`.
+
 The browser remembers the last selected species and environmental setting. An active job resumes after refresh in the same browser tab. Server restarts remove in-memory jobs; the UI explains how to restart the request.
 
 ## Evidence contracts
@@ -68,7 +70,7 @@ docker build -t species-tracker:check .
 
 Node.js 20+ is needed only for frontend tests; no npm dependencies or frontend build step are required. GitLab CI runs backend/frontend checks and a Docker build/startup check. The Docker job requires a runner supporting privileged Docker-in-Docker.
 
-See [portfolio cases](docs/portfolio-cases.md) for marine and terrestrial walkthroughs and reproducible source evidence. The backend tests mock external APIs; live cases are separate and never run in ordinary CI. Tests cover geometry, full-query discovery, source feature contracts, model validation, queue limits, refresh recovery, selected identity, and safe rendering.
+See [portfolio cases](docs/portfolio-cases.md) for marine and terrestrial walkthroughs and reproducible source evidence. The backend tests mock external APIs; live cases are separate and never run in ordinary CI. Tests cover geometry, full-query discovery, source feature contracts, model validation, queue limits, refresh recovery, selected identity, and safe rendering. Keep tests tied to these behavioral contracts; avoid assertions about retired UI labels or one-off release artifacts. The Docker CI startup check covers the health endpoint, so the backend suite does not duplicate that smoke check.
 
 ## Project layout
 
@@ -81,4 +83,4 @@ The old CCA approximation, habitat-envelope score, OBIS pipeline, and unrelated 
 
 ## Sources and credits
 
-[iNaturalist API](https://api.inaturalist.org/v1/docs/), [Open-Meteo Weather](https://open-meteo.com/en/docs), [Open-Meteo Marine](https://open-meteo.com/en/docs/marine-weather-api). Observation images remain remote and retain contributor attribution and licenses. Basemaps: OpenStreetMap contributors and Esri World Imagery. Track icon by Made by Made through Flaticon. The in-app Resources page lists all runtime libraries and their documentation.
+[iNaturalist API](https://api.inaturalist.org/v1/docs/), [Open-Meteo Weather](https://open-meteo.com/en/docs), [Open-Meteo Marine](https://open-meteo.com/en/docs/marine-weather-api). Observation images remain remote and retain contributor attribution and licenses. Basemaps: OpenStreetMap contributors and Esri World Imagery. Track icon by Made by Made through Flaticon. The in-app Resources page links data sources and map credits. Backend runtime dependencies are recorded in `backend/requirements-lock.txt`; frontend runtime libraries are referenced in `frontend/index.html`.
