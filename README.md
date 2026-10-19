@@ -271,7 +271,7 @@ These are the original creator credits and Flaticon URLs recorded in the project
 
 The original links are category pages, rather than individual download pages. Asset-specific download certificates and license records are not included in the repository, so the applicable license for each download still needs to be retained or recovered. Flaticon's [free-license guidance](https://www.flaticon.com/media/license/license.pdf) requires attribution and restricts redistribution; credit alone does not establish permission to redistribute the image files. Refer to the applicable download license and [Flaticon terms](https://www.flaticon.com/terms-of-use).
 
-The retained [selected-area reference image](resources/images/selected_area_example.png) shows an external coral-mapping interface and visibly credits **Planet Dove Imagery & Research Partners**. Its original capture URL and license are not recorded in the repository. It is not a Species Tracker screenshot and is not used in the current interface or the examples above; its provenance and reuse permission remain unverified.
+The retained [selected-area reference image](resources/images/selected_area_example.png) comes from [Allen Coral Atlas](https://www.allencoralatlas.org/atlas/#1.00/0.0000/-145.0000), powered by Arizona State University, and visibly credits **Planet Dove Imagery & Research Partners**. It is an external reference, not a Species Tracker screenshot, and is not used in the current interface or the examples above. The original source URL has been restored; a screenshot-specific license or reuse permission is not recorded in the repository and remains unverified.
 
 ### Wildlife, environmental data, and maps
 
