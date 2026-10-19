@@ -12,7 +12,7 @@ It is a focused portfolio project combining geographic analysis, public data ing
 
 > Results describe historical recording frequency and relative modeled conditions. They are **not calibrated probabilities of seeing an animal**.
 
-[Run locally](#run-locally) · [How the analyses work](#how-the-analyses-work) · [Examples](#examples) · [Evidence and limitations](#evidence-and-limitations) · [Development](#development)
+[Run locally](#run-locally) · [How the analyses work](#how-the-analyses-work) · [Examples](#examples) · [Evidence and limitations](#evidence-and-limitations) · [Development](#development) · [Sources and credits](#sources-and-credits)
 
 ## What can I do with it?
 
@@ -254,8 +254,64 @@ The latest recorded verification for the imputation release is **69 backend test
 
 ## Sources and credits
 
-Sightings and taxonomy: [iNaturalist](https://api.inaturalist.org/v1/docs/). Environmental data: [Open-Meteo Weather](https://open-meteo.com/en/docs) and [Open-Meteo Marine](https://open-meteo.com/en/docs/marine-weather-api). Basemaps: [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) and Esri World Imagery. Observation photos retain contributor attribution and license information.
+Species Tracker builds on the work of data contributors, designers, and open-source maintainers. The original image credits and resource links are preserved below, including assets and references retained from earlier versions. Third-party material remains subject to its own license; these acknowledgments do not relicense it.
+
+### Icons and retained image assets
+
+These are the original creator credits and Flaticon URLs recorded in the project history. All six icon files remain in the repository, including icons no longer displayed by the current interface.
+
+| Image file | Original attribution and source | Use |
+| --- | --- | --- |
+| [Area selector](resources/images/area_selector_icon.png) | [Polygonal icons created by Voysla - Flaticon](https://www.flaticon.com/free-icons/polygonal) | Retained area-selection icon. |
+| [Ruler](resources/images/ruler_icon.png) | [Ruler icons created by Freepik - Flaticon](https://www.flaticon.com/free-icons/ruler) | Retained measuring-tool icon. |
+| [Animal tracks](resources/images/track_icon.png) | [Dog icons created by Made by Made - Flaticon](https://www.flaticon.com/free-icons/dog) | Current application branding and favicon; the header applies a color filter. |
+| [Purpose target](resources/images/target_icon.png) | [Objectives icons created by sonnycandra - Flaticon](https://www.flaticon.com/free-icons/objectives) | Retained Purpose-tab icon. |
+| [Open book](resources/images/open-book_icon.png) | [Book icons created by Roundicons Premium - Flaticon](https://www.flaticon.com/free-icons/book) | Retained Documentation-tab icon. |
+| [Resources box](resources/images/box_icon.png) | [Box icons created by Pixel perfect - Flaticon](https://www.flaticon.com/free-icons/box) | Retained Resources-tab icon. |
+
+The original links are category pages, rather than individual download pages. Asset-specific download certificates and license records are not included in the repository, so the applicable license for each download still needs to be retained or recovered. Flaticon's [free-license guidance](https://www.flaticon.com/media/license/license.pdf) requires attribution and restricts redistribution; credit alone does not establish permission to redistribute the image files. Refer to the applicable download license and [Flaticon terms](https://www.flaticon.com/terms-of-use).
+
+The retained [selected-area reference image](resources/images/selected_area_example.png) comes from [Allen Coral Atlas](https://www.allencoralatlas.org/atlas/#1.00/0.0000/-145.0000), powered by Arizona State University, and visibly credits **Planet Dove Imagery & Research Partners**. It is an external reference, not a Species Tracker screenshot, and is not used in the current interface or the examples above. The original source URL has been restored; a screenshot-specific license or reuse permission is not recorded in the repository and remains unverified.
+
+### Wildlife, environmental data, and maps
+
+| Source | Contribution and attribution |
+| --- | --- |
+| [iNaturalist API](https://api.inaturalist.org/v1/docs/) | Wildlife observations, taxonomy, and observation grid tiles, contributed by the iNaturalist community. Source observation links identify the underlying records. |
+| [Open-Meteo Weather](https://open-meteo.com/en/docs), [Historical Weather](https://open-meteo.com/en/docs/historical-weather-api), and [Marine](https://open-meteo.com/en/docs/marine-weather-api) | Weather data by [Open-Meteo.com](https://open-meteo.com/), with upstream weather-service credits listed on its [data sources and license page](https://open-meteo.com/en/licence). Species Tracker aggregates hourly values into daily predictors and derives statistical outputs from them. |
+| [OpenStreetMap](https://www.openstreetmap.org/) | Light basemap: © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright). |
+| [Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9) | Satellite basemap supplied by Esri and its imagery contributors. Consult the source item's credits and terms for the imagery being used. |
+| [Leaflet](https://leafletjs.com/) | Interactive map, layers, controls, and drawing interactions. |
+
+Observation photographs belong to their contributors. The interface retains supplied attribution and license information, with links back to the observation. Licenses vary per image; consult the original observation and [iNaturalist's media-use guidance](https://help.inaturalist.org/en/support/solutions/articles/151000169918) before copying or republishing a photograph.
+
+Open-Meteo API data are offered under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); API access is also subject to separate [service terms](https://open-meteo.com/en/terms). Preserve data and map credits when sharing results or screenshots.
+
+The [desktop](docs/screenshots/desktop.jpg), [discovery](docs/screenshots/discovery.jpg), and [Random Forest](docs/screenshots/random-forest.jpg) images above capture Species Tracker's interface. The latter two use explicitly labeled synthetic fixture evidence. Map imagery remains third-party material, and the screenshots retain visible map credits.
+
+### Software and statistical references
+
+The application uses these projects; their own licenses and notices apply:
+
+- **Web backend:** [FastAPI](https://fastapi.tiangolo.com/), [Pydantic](https://docs.pydantic.dev/), [Uvicorn](https://www.uvicorn.org/), [HTTPX](https://www.python-httpx.org/), [cachetools](https://pypi.org/project/cachetools/), and [python-dotenv](https://github.com/theskumar/python-dotenv).
+- **Numerical and statistical analysis:** [NumPy](https://numpy.org/), [Pandas](https://pandas.pydata.org/), [scikit-learn](https://scikit-learn.org/), and [SciPy](https://scipy.org/) (a numerical dependency of scikit-learn).
+- **Geometry and distance calculations:** [Shapely](https://shapely.readthedocs.io/) and [PyProj](https://pyproj4.github.io/pyproj/).
+- **Optional AI interpretation:** [Google Gen AI SDK](https://googleapis.github.io/python-genai/).
+- **Verification:** [pytest](https://docs.pytest.org/) and the [Node.js test runner](https://nodejs.org/api/test.html).
 
 Statistical references: [scikit-learn logistic regression](https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression), [Random Forest importance](https://scikit-learn.org/stable/modules/ensemble.html#feature-importance-evaluation), and [randomForest proximity imputation](https://search.r-project.org/CRAN/refmans/randomForest/html/rfImpute.html). Our held-out imputation uses an explicit training-only transformation, not the R package itself.
 
-Track icon by Made by Made, via [Flaticon](https://www.flaticon.com/free-icons/dog). The in-app Resources tab links the runtime libraries and their documentation.
+### Earlier resources and acknowledgments
+
+These links acknowledge resources used or considered during development. They are preserved for provenance and are not a list of current integrations:
+
+| Resource | Historical role |
+| --- | --- |
+| [OBIS API](https://api.obis.org/v3/) | Earlier marine-occurrence integration; the current release uses iNaturalist for sightings. |
+| [CARTO basemaps](https://carto.com/basemaps/) | Earlier basemap provider. Current layers use OpenStreetMap and Esri. |
+| [Inter by Rasmus Andersson](https://fonts.google.com/specimen/Inter) | Earlier interface typeface reference. The current interface uses system fonts. |
+| [Turf.js](https://turfjs.org/) | Earlier browser geometry tooling. Current geometry validation uses Shapely/PyProj on the server. |
+| [Statsmodels](https://www.statsmodels.org/) | Earlier statistical tooling/reference; not used by the current methods. |
+| [Movebank API documentation](https://github.com/movebank/movebank-api-doc/blob/master/movebank-api.md) | Previously considered future data source; no Movebank integration is included. |
+
+The in-app Resources tab provides additional links to current tools and documentation. Acknowledgment of a source does not imply its endorsement of Species Tracker.
