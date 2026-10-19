@@ -1,3 +1,11 @@
+# Current test scope · 2026-10-19
+
+The maintained suite is limited to **three test files**, with **16 passing cases** across API handling, core analysis/discovery, and proximity imputation. Six other test files were removed rather than folding the entire previous suite into fewer files. The retained cases exercise both environmental settings, missing forecasts, exact polygon ranking, task completion, credential isolation, original-donor weighting, repeatability, held-out query isolation, and donor eligibility.
+
+All five frontend modules passed Node.js syntax checks. Frontend behavioral tests have been removed; browser interactions require manual verification. `npm test` now aliases the syntax-check command. The existing Starlette TestClient deprecation warning remains. The asynchronous tests stalled under the Windows sandbox and passed when rerun outside it. No application logic changed, and Docker checks were not rerun for this cleanup.
+
+The larger test counts below describe historical runs before this reduction, not the current suite.
+
 # Release verification · 2026-10-16
 
 - Backend regression suite: **47 passed**, both on Windows and inside the clean Linux/Python 3.12 release image.
