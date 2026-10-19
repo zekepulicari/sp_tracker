@@ -1,4 +1,4 @@
-"""Offline browser acceptance server. Never a source of real wildlife forecasts."""
+"""Offline acceptance server with partial RF predictors, never wildlife forecasts."""
 import argparse
 import sys
 from pathlib import Path
@@ -33,8 +33,13 @@ async def local_fixture(request,progress):
     points=[{**r,'month':int(r['date'][5:7])} for r in synthetic_records(request.environment) if r['presence']==1]
     return points,5,{'complete':True,'notice':'Synthetic acceptance fixture; no live sightings.'}
 
-async def aligned_fixture(points,environment,progress):
-    return synthetic_records(environment),[]
+async def aligned_fixture(points,environment,progress,retain_partial=False):
+    rows = synthetic_records(environment)
+    if retain_partial:
+        from analysis.features import ENVIRONMENTS
+        for i in range(0, len(rows), 7):
+            rows[i][ENVIRONMENTS[environment][0]] = None
+    return rows,[]
 
 async def weather_fixture(lat,lng,start,end,environment,forecast=False):
     from analysis.features import ENVIRONMENTS

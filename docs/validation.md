@@ -27,3 +27,26 @@ The maintained suite now contains **45 backend tests and 9 frontend tests**, all
 - 50 backend tests and 13 frontend tests pass locally, including personal-key precedence, per-job isolation, validation without secret reflection, model-cache isolation, memory-only frontend settings, and rerunning with the current key.
 - A personal Gemini key is transmitted only on analysis submission and is not persisted to `.env`, browser storage, task results, or model caches. SDK exceptions still produce a safe deterministic fallback.
 - Observation points use orange with a white outline; map layer radio buttons retain their native compact size because form styling is scoped to the sidebar/settings form.
+
+## Random Forest proximity imputation · 2026-10-19
+
+Model version **2.2.0** adds bounded, training-only proximity imputation to Key Factors. **69 backend tests and 14 frontend tests passed** locally; Python/JavaScript syntax, HTML nesting, and Git whitespace checks passed. The pre-existing Starlette TestClient deprecation warning remains. Logistic regression and missing forecasts retain their previous policies. The regression suite covers observed-value preservation, original-donor masks, reproducibility, unsupported historical coverage, excessive missingness, zero-proximity exclusions, holdout-label/query isolation, matched baseline records, cache provenance, and AI record-ID privacy.
+
+Browser checks passed for terrestrial and marine Key Factors. The offline fixture includes 35 partially observed records for Random Forest in either environmental setting. Results distinguish 205 complete records and 35 records retained through imputation, with visible warnings on importance bars. These are synthetic acceptance records, not wildlife evidence.
+
+Reproduce the masked-data comparison with:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/imputation_benchmark.py --output docs/examples/imputation-benchmark.json
+```
+
+The saved [measured experiment](examples/imputation-benchmark.json) uses 180 training records and 60 held-out records per setting; training and held-out masks are explicit and test labels are not supplied to transformation. No query was excluded in either case. Selected reconstruction results:
+
+| Synthetic predictor | Proximity MAE | Training-median MAE |
+| --- | ---: | ---: |
+| Terrestrial air temperature (°C) | 2.3461 | 5.4931 |
+| Terrestrial rainfall (mm/day) | 0.7223 | 1.3416 |
+| Marine sea surface temperature (°C) | 2.3676 | 5.5777 |
+| Marine wave height (m) | 0.1177 | 0.2843 |
+
+Lower error in these controlled correlated examples does not establish ecological predictive performance, guarantee improvement for other missingness patterns, or remove missingness bias. No new live ecological validation or paid AI call was performed for this change.

@@ -1,7 +1,7 @@
 import {Selection, label, localDate, escapeHtml, safeUrl} from './state.js';
 import {MapTools} from './tools.js';
-import {setupAnalysis} from './analysis.js?v=2.1';
-import {setupApiSettings} from './settings.js?v=2.1';
+import {setupAnalysis} from './analysis.js?v=2.2';
+import {setupApiSettings} from './settings.js?v=2.2';
 
 const $ = id => document.getElementById(id);
 let storage;
