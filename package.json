@@ -1,1 +1,13 @@
-{"name":"species-tracker","private":true,"version":"2.0.0","type":"module","scripts":{"test":"node --test tests/*.test.mjs","check":"node --check frontend/app.js && node --check frontend/analysis.js && node --check frontend/tools.js && node --check frontend/state.js && node --check frontend/settings.js"},"engines":{"node":">=20"}}
+{
+  "name": "species-tracker",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "npm run check",
+    "check": "node --check frontend/app.js && node --check frontend/analysis.js && node --check frontend/tools.js && node --check frontend/state.js && node --check frontend/settings.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

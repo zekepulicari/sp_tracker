@@ -41,7 +41,6 @@ From the repository root after installing the pinned Python dependencies:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
-node --test tests/*.test.mjs
 node --check frontend/app.js
 node --check frontend/analysis.js
 node --check frontend/tools.js
@@ -51,9 +50,9 @@ docker compose config --quiet
 docker build -t species-tracker:check .
 ```
 
-Node.js 20+ is only needed for frontend checks. No npm dependencies or frontend build step are required. `npm test` and `npm run check` are equivalent convenience scripts when npm is available. GitLab CI repeats backend/frontend checks and Docker build/startup verification; the Docker job requires a runner supporting privileged Docker-in-Docker. See [dated validation evidence](validation.md) for what has actually been exercised.
+Node.js 20+ is only needed for frontend checks. No npm dependencies or frontend build step are required. `npm test` and `npm run check` are equivalent convenience scripts when npm is available. The retained GitLab CI configuration repeats backend tests, frontend syntax checks, and Docker build/startup verification; its Docker job requires a runner supporting privileged Docker-in-Docker. It does not run automatically on GitHub. See [dated validation evidence](validation.md) for what has actually been exercised.
 
-Backend tests mock external services; ordinary CI does not consume live ecological API or Gemini quotas. Keep regression tests tied to geometry, query completeness, analytical contracts, holdout isolation, queue limits, identity persistence, and safe rendering. The Docker startup check covers the health endpoint.
+Backend tests mock external services; ordinary CI does not consume live ecological API or Gemini quotas. Keep exactly three focused test files: `test_api.py` for request validation, task completion, and per-job credential isolation; `test_analysis.py` for environmental model contracts, missing forecasts, and polygon discovery ranking; and `test_imputation.py` for observed-donor weighting, repeatability, held-out query isolation, and donor eligibility. Frontend verification is limited to syntax checks; interactive behavior needs manual browser verification. The Docker startup check covers the health endpoint.
 
 The Docker image uses Python 3.12, a non-root user, and one Uvicorn process. Keep one application process for this in-memory task queue; adding multiple processes requires a shared task store. The Compose service binds localhost. Public deployments need HTTPS and a reverse proxy with an appropriate request/body-size limit. Images exclude `.env`; credentials are supplied at runtime.
 
@@ -62,5 +61,5 @@ The Docker image uses Python 3.12, a non-root user, and one Uvicorn process. Kee
 - `backend/analysis/`: feature definitions, WGS84 geometry, ingestion, classifiers, prediction, discovery, and optional summaries.
 - `backend/main.py`, `jobs.py`, `upstream.py`: validation/routing, bounded jobs, and upstream budgets.
 - `frontend/`: plain JavaScript modules, Leaflet map/tools, accessible controls, and safe result rendering.
-- `backend/tests/`, `tests/`: analytical/API and frontend workflow regression tests.
+- `backend/tests/`: the three maintained API, analysis, and imputation test files.
 

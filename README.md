@@ -245,7 +245,7 @@ The project stays focused on wildlife visit planning: no accounts, tracking tele
 
 The frontend is plain JavaScript; the backend validates requests, retrieves public data, and runs bounded background jobs. Model fitting and AI work are offloaded from the event loop. Requests share timeouts, bounded concurrency, retries, and upstream budgets.
 
-The latest recorded verification for the imputation release is **69 backend tests and 14 frontend tests**. See [dated validation evidence](docs/validation.md) for the exact checks and limitations; the Docker build/startup record is from the earlier portfolio release.
+The maintained suite is intentionally limited to **three test files**: API validation/task handling, core analysis/discovery behavior, and Random Forest proximity imputation. Frontend modules have syntax checks. See [dated validation evidence](docs/validation.md) for current and historical verification results; the Docker build/startup record is from the earlier portfolio release.
 
 - [Development and API reference](docs/development.md): architecture, configuration, endpoints, tests, and deployment notes.
 - [Portfolio walkthroughs](docs/portfolio-cases.md): reproduce marine, terrestrial, and synthetic cases.
@@ -297,7 +297,7 @@ The application uses these projects; their own licenses and notices apply:
 - **Numerical and statistical analysis:** [NumPy](https://numpy.org/), [Pandas](https://pandas.pydata.org/), [scikit-learn](https://scikit-learn.org/), and [SciPy](https://scipy.org/) (a numerical dependency of scikit-learn).
 - **Geometry and distance calculations:** [Shapely](https://shapely.readthedocs.io/) and [PyProj](https://pyproj4.github.io/pyproj/).
 - **Optional AI interpretation:** [Google Gen AI SDK](https://googleapis.github.io/python-genai/).
-- **Verification:** [pytest](https://docs.pytest.org/) and the [Node.js test runner](https://nodejs.org/api/test.html).
+- **Verification:** [pytest](https://docs.pytest.org/) and [Node.js syntax checks](https://nodejs.org/api/cli.html#-c---check).
 
 Statistical references: [scikit-learn logistic regression](https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression), [Random Forest importance](https://scikit-learn.org/stable/modules/ensemble.html#feature-importance-evaluation), and [randomForest proximity imputation](https://search.r-project.org/CRAN/refmans/randomForest/html/rfImpute.html). Our held-out imputation uses an explicit training-only transformation, not the R package itself.
 

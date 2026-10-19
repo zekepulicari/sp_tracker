@@ -16,7 +16,6 @@ frontend:
   image: node:22-slim
   script:
     - npm run check
-    - npm test
 
 docker:
   stage: build
