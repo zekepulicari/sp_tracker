@@ -1,6 +1,7 @@
 import {Selection, label, localDate, escapeHtml, safeUrl} from './state.js';
 import {MapTools} from './tools.js';
-import {setupAnalysis} from './analysis.js';
+import {setupAnalysis} from './analysis.js?v=2.1';
+import {setupApiSettings} from './settings.js?v=2.1';
 
 const $ = id => document.getElementById(id);
 let storage;
@@ -80,7 +81,7 @@ async function updateObservations() {
         for (const obs of data.results || []) {
             const coords = obs.geojson?.coordinates;
             if (!coords) continue;
-            L.circleMarker([coords[1],coords[0]], {radius:6, color:'#344e41', fillColor:'#588157', fillOpacity:.85})
+            L.circleMarker([coords[1],coords[0]], {radius:7, color:'#ffffff', weight:2, fillColor:'#e76f00', fillOpacity:.95})
                 .bindPopup(popup(obs)).addTo(markers);
         }
         status(`${markers.getLayers().length} observations shown${data.complete ? '.' : ` from a capped sample of ${data.sample_cap}. These are not complete counts.`}`);
@@ -90,7 +91,7 @@ function refreshSpecies() {
     if (grid) map.removeLayer(grid);
     grid = null; markers.clearLayers();
     if (selection.species) {
-        grid = L.tileLayer(`https://api.inaturalist.org/v1/grid/{z}/{x}/{y}.png?taxon_id=${selection.species.id}&color=%23588157`, {opacity:.8, attribution:'© <a href="https://www.inaturalist.org">iNaturalist</a>'});
+        grid = L.tileLayer(`https://api.inaturalist.org/v1/grid/{z}/{x}/{y}.png?taxon_id=${selection.species.id}&color=%23e76f00`, {opacity:.8, attribution:'© <a href="https://www.inaturalist.org">iNaturalist</a>'});
         grid.on('tileerror', () => status('Some sightings tiles are unavailable. Try zooming in for observations.'));
         $('species-hint').textContent = `Selected: ${selection.species.name}`;
     } else $('species-hint').textContent = 'Choose a search result before running an analysis.';
@@ -172,5 +173,10 @@ input.addEventListener('keydown', event => {
     else if (event.key === 'Escape') hideOptions();
 });
 document.addEventListener('click', event => { if (!list.contains(event.target) && event.target !== input) hideOptions(); });
-setupAnalysis({selection, tools, choose, map});
+const credentials = setupApiSettings({
+    rerun: () => analysis.rerunLast(),
+    isBusy: () => analysis.isBusy(),
+    explore: () => showPage('home'),
+});
+const analysis = setupAnalysis({selection, tools, choose, map, apiHeaders:credentials.headers});
 refreshSpecies();

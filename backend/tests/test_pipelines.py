@@ -22,7 +22,7 @@ def arrange(monkeypatch,environment,missing=False):
     records=[{**r,'month':int(r['date'][5:7])} for r in model_records(environment) if r['presence']==1]
     monkeypatch.setattr('analysis.prediction.local_occurrences',AsyncMock(return_value=(records,{'complete':True})))
     monkeypatch.setattr('analysis.prediction.align_history',AsyncMock(return_value=(model_records(environment),[])))
-    def explain(species,evidence,fallback):return {'text':fallback,'source':'evidence','notice':'fixture'}
+    def explain(species,evidence,fallback,api_key=None):return {'text':fallback,'source':'evidence','notice':'fixture'}
     monkeypatch.setattr('analysis.prediction.generate_interpretation',explain)
     async def weather(lat,lng,start,end,env,forecast=False):
         values={k:None if missing else 15.0 for k in ENVIRONMENTS[env]}
@@ -75,3 +75,37 @@ def test_ai_missing_or_exception_preserves_evidence(monkeypatch):
     monkeypatch.setattr(genai,'Client',lambda **kwargs:(_ for _ in ()).throw(ValueError('private SDK details')))
     result=generate_interpretation('Animal',{},'Evidence')
     assert result['text']=='Evidence' and 'private' not in str(result)
+
+
+def test_personal_key_overrides_default_without_mutating_it(monkeypatch):
+    from google import genai
+    from types import SimpleNamespace
+    from analysis import interpretation
+    received = []
+    class Client:
+        def __init__(self, **kwargs):
+            received.append(kwargs['api_key'])
+            self.models = SimpleNamespace(generate_content=lambda **kwargs: SimpleNamespace(text='Summary'))
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+    monkeypatch.setattr(interpretation, 'GEMINI_KEY', 'server-default-key')
+    monkeypatch.setattr(genai, 'Client', Client)
+    assert generate_interpretation('Animal', {}, 'Evidence', 'personal-key')['source'] == 'ai'
+    assert generate_interpretation('Animal', {}, 'Evidence')['source'] == 'ai'
+    assert received == ['personal-key', 'server-default-key']
+    assert interpretation.GEMINI_KEY == 'server-default-key'
+
+
+def test_cached_model_uses_current_request_key(monkeypatch):
+    arrange(monkeypatch, 'terrestrial')
+    seen = []
+    def explain(species, evidence, fallback, api_key=None):
+        seen.append(api_key)
+        return {'text': fallback, 'source': 'evidence', 'notice': 'fixture'}
+    monkeypatch.setattr('analysis.prediction.generate_interpretation', explain)
+    first = run(run_analysis(request(), lambda _: None, 'first-personal-key'))
+    second = run(run_analysis(request(), lambda _: None, 'second-personal-key'))
+    assert seen == ['first-personal-key', 'second-personal-key']
+    assert 'personal-key' not in str(first) + str(second) + str(model_cache)
+    from analysis.prediction import align_history
+    assert align_history.call_count == 1

@@ -58,7 +58,7 @@ if __name__=='__main__':
     prediction.collect_local=local_fixture
     prediction.align_history=aligned_fixture
     prediction.environmental_days=weather_fixture
-    prediction.generate_interpretation=lambda species,evidence,fallback:{'text':fallback,'source':'fixture','notice':'Synthetic acceptance fixture, not an ecological forecast.'}
+    prediction.generate_interpretation=lambda species,evidence,fallback,api_key=None:{'text':fallback,'source':'fixture','notice':'Synthetic acceptance fixture, not an ecological forecast.'}
     import analysis.discovery as discovery
     discovery.environmental_days=weather_fixture
     uvicorn.run(app,host='127.0.0.1',port=8002)

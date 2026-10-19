@@ -18,6 +18,8 @@ On macOS/Linux, use `.venv/bin/python` instead. Open http://127.0.0.1:8000/.
 
 No credentials are required for core discovery and analysis. For optional AI summaries, copy `.env.example` to `.env` and set `GEMINI_KEY` locally. The root `.env` loads on startup; process environment variables override it. Restart after changing configuration. Never commit `.env`.
 
+The **API Keys** tab lets each visitor apply a personal Gemini key and rerun their last species analysis immediately. The key overrides the server default only for their submitted requests. It stays in page memory (cleared by refresh/closing the tab), travels in the `X-Gemini-Key` header to the backend, and is passed explicitly to the Google SDK. It is not written to browser storage, task results, model caches, or `.env`. Use HTTPS outside localhost; do not log request headers in your hosting proxy. Removing a personal key restores the server default for future requests; queued jobs keep their original key. Google validates key permissions/quota during summary generation; failure preserves statistical results. iNaturalist and Open-Meteo need no user keys in this release.
+
 ## Run with Docker
 
 ```sh
@@ -49,6 +51,7 @@ The browser remembers the last selected species and environmental setting. An ac
 
 - `POST /api/analysis/run`: resolved `species`, positive `taxon_id`, `environment` (`terrestrial`/`marine`), `target_lat`, `target_lng`, ISO `target_date`; optional `method` (`glm`/`rf`/`rustic`), `operation` (`single_day`/`compare_days`), `limit` (100–500), and `radius_km` (5–50).
 - `POST /api/discovery/run`: validated GeoJSON `polygon`, ISO `target_date`, optional `animal_group` (default `all`). No holes, self-intersections, antimeridian crossing, or more than 100 vertices.
+- Species requests may include an optional `X-Gemini-Key` header for a request-scoped AI summary override. Invalid formats are rejected before queueing without reflecting the key.
 - Both return `task_id`. Poll `GET /api/analysis/status/{task_id}`; fetch `GET /api/analysis/results/{task_id}` on completion.
 - Job states: queued, running, complete, failed, expired. Incomplete results return 202, expired results 410, missing jobs 404, and busy queues 429. Two jobs run concurrently, eight can wait, results remain for 24 hours; a one-hour expiry tombstone permits recovery messaging. Retained task count is bounded.
 - `GET /api/observations` returns a disclosed 100-record map sample. `POST /api/observations/within` returns exact polygon-filtered records from a disclosed 200-record sample for the requested species.
@@ -60,7 +63,7 @@ The shared gateway bounds upstream concurrency, enforces per-service rolling req
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
-node --test tests/frontend.test.mjs tests/tools.test.mjs
+node --test tests/*.test.mjs
 npm run check
 docker compose config --quiet
 docker build -t species-tracker:check .

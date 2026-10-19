@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import date
 from typing import Literal
 import math
+import re
 from fastapi import FastAPI, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -27,7 +28,7 @@ async def lifespan(app):
 app = FastAPI(title='Species Tracker', version=MODEL_VERSION, lifespan=lifespan)
 if ALLOWED_ORIGINS:
     app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS,
-                       allow_methods=['GET', 'POST'], allow_headers=['Content-Type'])
+                       allow_methods=['GET', 'POST'], allow_headers=['Content-Type', 'X-Gemini-Key'])
 cache = TTLCache(maxsize=256, ttl=3600)
 
 class InputModel(BaseModel):
@@ -134,7 +135,11 @@ def submit(request, runner):
 
 @app.post('/api/analysis/run')
 async def start_analysis(body: AnalysisRequest, request: Request):
-    return submit(request, lambda progress: analyze(body, progress))
+    # Read manually so validation errors never echo a credential back to the caller.
+    api_key = request.headers.get('X-Gemini-Key')
+    if api_key is not None and not re.fullmatch(r'[A-Za-z0-9_-]{10,256}', api_key):
+        raise HTTPException(422, detail='Invalid Gemini key format. Check the API Keys tab.')
+    return submit(request, lambda progress: analyze(body, progress, api_key))
 
 @app.post('/api/discovery/run')
 async def start_discovery(body: DiscoveryRequest, request: Request):

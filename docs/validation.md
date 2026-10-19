@@ -21,3 +21,9 @@ The maintained suite now contains **45 backend tests and 9 frontend tests**, all
 - Consolidated Random Forest importance assertions into the existing full Key Factors pipeline test. Kept a focused spatial grouping test, and made the rendering check assert visible importance bars instead of the absence of a retired heading.
 - Removed unused test imports. Retained analytical, geometry, completeness, queue, persistence, and safe-rendering regression tests.
 - JavaScript syntax and Git whitespace checks passed. The Guide rewrite was reverted in favor of the technical Documentation tab, with current model, study-extent, and forecast limitations clarified. The original Resources list was restored. No runtime or dependency changes required another Docker build.
+
+## Personal API keys and map controls · 2026-10-19
+
+- 50 backend tests and 13 frontend tests pass locally, including personal-key precedence, per-job isolation, validation without secret reflection, model-cache isolation, memory-only frontend settings, and rerunning with the current key.
+- A personal Gemini key is transmitted only on analysis submission and is not persisted to `.env`, browser storage, task results, or model caches. SDK exceptions still produce a safe deterministic fallback.
+- Observation points use orange with a white outline; map layer radio buttons retain their native compact size because form styling is scoped to the sidebar/settings form.
