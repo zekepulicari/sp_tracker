@@ -1,0 +1,81 @@
+{
+  "notice": "Synthetic masked-data experiment, not ecological validation. Lower MAE means better reconstruction in this example; improvement is not guaranteed on other missingness patterns.",
+  "model_version": "2.2.0",
+  "cases": [
+    {
+      "environment": "terrestrial",
+      "seed": 42,
+      "training_records": 180,
+      "held_out_records": 60,
+      "excluded_queries": 0,
+      "metrics": {
+        "air_temp": {
+          "masked_cells_reconstructed": 20,
+          "proximity_mae": 2.3460765909467907,
+          "training_median_mae": 5.493072754108141
+        },
+        "wind_speed": {
+          "masked_cells_reconstructed": 20,
+          "proximity_mae": 0.9903394023684378,
+          "training_median_mae": 2.5679981446052462
+        },
+        "precipitation": {
+          "masked_cells_reconstructed": 20,
+          "proximity_mae": 0.7223392695272344,
+          "training_median_mae": 1.3415729695042227
+        }
+      },
+      "parameters": {
+        "iterations": 5,
+        "n_estimators": 200,
+        "max_depth": 8,
+        "min_samples_leaf": 3,
+        "seed": 42,
+        "min_donors": 15,
+        "max_missing_fraction": 0.5,
+        "max_records": 1000,
+        "max_restarts": 5
+      }
+    },
+    {
+      "environment": "marine",
+      "seed": 42,
+      "training_records": 180,
+      "held_out_records": 60,
+      "excluded_queries": 0,
+      "metrics": {
+        "sst": {
+          "masked_cells_reconstructed": 15,
+          "proximity_mae": 2.3675605843096204,
+          "training_median_mae": 5.577730029913959
+        },
+        "wind_speed": {
+          "masked_cells_reconstructed": 15,
+          "proximity_mae": 1.0322113989754726,
+          "training_median_mae": 2.3300053245413874
+        },
+        "wave_height": {
+          "masked_cells_reconstructed": 15,
+          "proximity_mae": 0.11771100676283155,
+          "training_median_mae": 0.2843465677820884
+        },
+        "ocean_current_velocity": {
+          "masked_cells_reconstructed": 15,
+          "proximity_mae": 0.14357267892896916,
+          "training_median_mae": 0.3514059503978257
+        }
+      },
+      "parameters": {
+        "iterations": 5,
+        "n_estimators": 200,
+        "max_depth": 8,
+        "min_samples_leaf": 3,
+        "seed": 42,
+        "min_donors": 15,
+        "max_missing_fraction": 0.5,
+        "max_records": 1000,
+        "max_restarts": 5
+      }
+    }
+  ]
+}

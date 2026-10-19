@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from cachetools import TTLCache
 from analysis.features import FEATURES, ENVIRONMENTS, aggregate
 from analysis.geo import distance_km
+from analysis.imputation import eligibility_reason, exclusion, missing_features
 from upstream import gateway, UpstreamError
 
 INAT = 'https://api.inaturalist.org/v1'
@@ -132,7 +133,7 @@ async def environmental_days(lat, lng, start, end, environment, forecast=False):
     return result, warnings
 
 
-async def align_history(points, environment, progress):
+async def align_history(points, environment, progress, retain_partial=False):
     lock = asyncio.Semaphore(4)
     completed = 0
     excluded = []
@@ -140,6 +141,19 @@ async def align_history(points, environment, progress):
 
     async def fetch(point):
         nonlocal completed
+        if retain_partial:
+            # Enforce known coverage before any network request or statistical filling.
+            try:
+                day = date.fromisoformat(str(point['date']))
+                valid_location = -90 <= float(point['lat']) <= 90 and -180 <= float(point['lng']) <= 180
+            except (KeyError, ValueError, TypeError):
+                day, valid_location = None, False
+            if (not valid_location or day is None or day > date.today() - timedelta(days=5)
+                    or (environment == 'marine' and day < date(2022, 1, 1))):
+                excluded.append({'id': point['id'], 'date': point.get('date'), 'missing': list(ENVIRONMENTS[environment]),
+                                 'reason': 'Invalid location/date or outside supported historical coverage.'})
+                completed += 1
+                return
         async with lock:
             key = (round(point['lat'], 4), round(point['lng'], 4), point['date'], environment)
             if key not in env_cache:
@@ -149,11 +163,13 @@ async def align_history(points, environment, progress):
                     env_cache[key] = conditions
             else:
                 conditions = dict(env_cache[key])
-        missing = [k for k, v in conditions.items() if v is None]
-        if missing:
-            excluded.append({'id': point['id'], 'date': point['date'], 'missing': missing})
+        combined = {**point, **conditions}
+        missing = missing_features(combined, environment)
+        reason = eligibility_reason(combined, environment) if retain_partial else ('Incomplete environmental data.' if missing else None)
+        if reason:
+            excluded.append(exclusion(combined, environment, reason))
         else:
-            aligned.append({**point, **conditions})
+            aligned.append({**combined, 'missing': missing})
         completed += 1
         if completed % 20 == 0 or completed == len(points):
             progress(f'Aligning environmental evidence: {completed}/{len(points)}')
