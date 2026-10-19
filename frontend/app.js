@@ -80,7 +80,7 @@ async function updateObservations() {
         for (const obs of data.results || []) {
             const coords = obs.geojson?.coordinates;
             if (!coords) continue;
-            L.circleMarker([coords[1],coords[0]], {radius:6, color:'#344e41', fillColor:'#588157', fillOpacity:.85})
+            L.circleMarker([coords[1],coords[0]], {radius:7, color:'#ffffff', weight:2, fillColor:'#e76f00', fillOpacity:.95})
                 .bindPopup(popup(obs)).addTo(markers);
         }
         status(`${markers.getLayers().length} observations shown${data.complete ? '.' : ` from a capped sample of ${data.sample_cap}. These are not complete counts.`}`);
@@ -90,7 +90,7 @@ function refreshSpecies() {
     if (grid) map.removeLayer(grid);
     grid = null; markers.clearLayers();
     if (selection.species) {
-        grid = L.tileLayer(`https://api.inaturalist.org/v1/grid/{z}/{x}/{y}.png?taxon_id=${selection.species.id}&color=%23588157`, {opacity:.8, attribution:'© <a href="https://www.inaturalist.org">iNaturalist</a>'});
+        grid = L.tileLayer(`https://api.inaturalist.org/v1/grid/{z}/{x}/{y}.png?taxon_id=${selection.species.id}&color=%23e76f00`, {opacity:.8, attribution:'© <a href="https://www.inaturalist.org">iNaturalist</a>'});
         grid.on('tileerror', () => status('Some sightings tiles are unavailable. Try zooming in for observations.'));
         $('species-hint').textContent = `Selected: ${selection.species.name}`;
     } else $('species-hint').textContent = 'Choose a search result before running an analysis.';
