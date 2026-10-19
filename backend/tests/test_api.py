@@ -73,3 +73,29 @@ def test_map_zero_bounds_and_exact_polygon_filter(monkeypatch):
         assert [r['id'] for r in response.json()['results']]==[1]
         assert not response.json()['complete']
         assert mocked.call_args[0][1]['taxon_id']==42
+
+
+def test_personal_keys_are_scoped_to_jobs_and_never_returned(monkeypatch):
+    analyze = AsyncMock(return_value={'type': 'historical_profile', 'summary': 'done'})
+    monkeypatch.setattr('main.analyze', analyze)
+    keys = ['personal-key-alpha', 'personal-key-beta', None]
+    with TestClient(app) as client:
+        for key in keys:
+            headers = {'X-Gemini-Key': key} if key else {}
+            task_id = client.post('/api/analysis/run', json=PAYLOAD, headers=headers).json()['task_id']
+            for _ in range(100):
+                response = client.get(f'/api/analysis/results/{task_id}')
+                if response.status_code == 200: break
+                time.sleep(.01)
+            assert response.status_code == 200
+            assert all(secret not in response.text for secret in keys if secret)
+        assert [call.args[2] for call in analyze.call_args_list] == keys
+        assert all(secret not in str(app.state.jobs.records) for secret in keys if secret)
+
+
+@pytest.mark.parametrize('key', ['bad key', 'x' * 257])
+def test_invalid_personal_key_is_not_echoed_or_queued(key):
+    with TestClient(app) as client:
+        response = client.post('/api/analysis/run', json=PAYLOAD, headers={'X-Gemini-Key': key})
+        assert response.status_code == 422 and key not in response.text
+        assert not app.state.jobs.records

@@ -84,3 +84,24 @@ test('server restart produces a clear recovery message',async()=>{
     assert(h.element('analysis-results').innerHTML.includes('server may have restarted'));
     assert.equal(h.element('btn-run-analysis').disabled,false);
 });
+
+
+test('rerunning analysis uses the current personal key header without storing it in payload or session',async()=>{
+    const h=harness();const calls=[];let key='first-personal-key';
+    h.context.apiHeaders=()=>({'X-Gemini-Key':key});
+    globalThis.fetch=async(path,options)=>{
+        calls.push([path,options]);
+        if(options)return {ok:true,json:async()=>({task_id:'task'})};
+        if(path.includes('status'))return {ok:true,json:async()=>({status:'complete',progress:'done'})};
+        return {ok:true,json:async()=>({type:'historical_profile',summary:'Done',warnings:[],profile:[]})};
+    };
+    const analysis=setupAnalysis(h.context);
+    assert.equal(analysis.rerunLast(),false);
+    h.element('btn-run-analysis').listeners.click();
+    assert(!h.session.getItem('sp-tracker:task')?.includes('personal-key'));
+    await flush();key='second-personal-key';
+    assert.equal(analysis.rerunLast(),true);await flush();
+    const submissions=calls.filter(([,options])=>options);
+    assert.deepEqual(submissions.map(([,options])=>options.headers['X-Gemini-Key']),['first-personal-key','second-personal-key']);
+    assert(submissions.every(([,options])=>!options.body.includes('personal-key')));
+});

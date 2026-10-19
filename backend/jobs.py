@@ -72,3 +72,5 @@ class Jobs:
             finally:
                 task['finished'] = time.monotonic()
                 self.queue.task_done()
+                # A runner can close over a request credential; release it before waiting.
+                runner = None

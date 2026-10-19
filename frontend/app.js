@@ -1,6 +1,7 @@
 import {Selection, label, localDate, escapeHtml, safeUrl} from './state.js';
 import {MapTools} from './tools.js';
-import {setupAnalysis} from './analysis.js';
+import {setupAnalysis} from './analysis.js?v=2.1';
+import {setupApiSettings} from './settings.js?v=2.1';
 
 const $ = id => document.getElementById(id);
 let storage;
@@ -172,5 +173,10 @@ input.addEventListener('keydown', event => {
     else if (event.key === 'Escape') hideOptions();
 });
 document.addEventListener('click', event => { if (!list.contains(event.target) && event.target !== input) hideOptions(); });
-setupAnalysis({selection, tools, choose, map});
+const credentials = setupApiSettings({
+    rerun: () => analysis.rerunLast(),
+    isBusy: () => analysis.isBusy(),
+    explore: () => showPage('home'),
+});
+const analysis = setupAnalysis({selection, tools, choose, map, apiHeaders:credentials.headers});
 refreshSpecies();

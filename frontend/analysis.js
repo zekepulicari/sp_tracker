@@ -105,7 +105,8 @@ export function setupAnalysis(context) {
         busy(true); progress.textContent = 'Submitting request…';
         const token = ++generation;
         try {
-            const response = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+            const headers = {'Content-Type':'application/json', ...(path === '/api/analysis/run' ? context.apiHeaders?.() : {})};
+            const response = await fetch(path,{method:'POST',headers,body:JSON.stringify(payload)});
             const data = await response.json();
             if (!response.ok) throw Error(typeof data.detail==='string' ? data.detail : 'Check the selected date, coordinates, and area.');
             lastPayload = path.includes('discovery') ? null : payload;
@@ -151,4 +152,12 @@ export function setupAnalysis(context) {
             busy(true); progress.textContent='Resuming the previous task…'; poll(saved.id,++generation);
         } catch { clearTask(); fail('The previous task could not be restored. Run it again.'); }
     }
+    return {
+        isBusy: () => active,
+        rerunLast() {
+            if (active || !lastPayload) return false;
+            start('/api/analysis/run', {...lastPayload});
+            return true;
+        },
+    };
 }

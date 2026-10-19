@@ -138,7 +138,7 @@ async def future_days(request, model, result, progress):
             result['summary'] = f'Conditions look {description} compared with the conditions in this model’s local training sample. This comparison does not establish the chance of seeing the animal.'
 
 
-async def run_analysis(request, progress):
+async def run_analysis(request, progress, api_key=None):
     key = (request.taxon_id, request.target_lat, request.target_lng, request.radius_km,
            request.limit, request.environment, request.method, str(date.today()))
     if key in model_cache:
@@ -160,5 +160,5 @@ async def run_analysis(request, progress):
     ai_evidence = {k: result[k] for k in ('type', 'summary', 'warnings')}
     ai_evidence['model'] = result.get('model')
     result['interpretation'] = await asyncio.to_thread(generate_interpretation,
-        request.species, ai_evidence, result['summary'])
+        request.species, ai_evidence, result['summary'], api_key)
     return result
