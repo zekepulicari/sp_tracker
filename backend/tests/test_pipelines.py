@@ -109,3 +109,45 @@ def test_cached_model_uses_current_request_key(monkeypatch):
     assert 'personal-key' not in str(first) + str(second) + str(model_cache)
     from analysis.prediction import align_history
     assert align_history.call_count == 1
+
+
+@pytest.mark.parametrize('environment', ['terrestrial', 'marine'])
+def test_key_factors_reports_estimates_without_sending_source_ids_to_ai(monkeypatch, environment):
+    arrange(monkeypatch, environment)
+    rows = model_records(environment)
+    for i in range(0, len(rows), 7):
+        rows[i][ENVIRONMENTS[environment][0]] = None
+        rows[i]['id'] = f'private-record-{i}'
+    monkeypatch.setattr('analysis.prediction.align_history', AsyncMock(return_value=(rows, [])))
+    captured = []
+    def explain(species, evidence, fallback, api_key=None):
+        captured.append(evidence)
+        return {'text': fallback, 'source': 'evidence', 'notice': 'fixture'}
+    monkeypatch.setattr('analysis.prediction.generate_interpretation', explain)
+    result = run(run_analysis(request(environment, method='rf'), lambda _: None))
+    evidence = result['evidence']
+    assert evidence['complete_records'] + evidence['imputed_records'] == result['model']['n_records']
+    assert evidence['imputed_records'] == 35 and evidence['imputed_cells'] == 35
+    assert evidence['usable_sightings'] + evidence['usable_background'] == result['model']['n_records']
+    assert any('estimated' in warning for warning in result['warnings'])
+    assert 'private-record-' not in str(captured)
+    assert captured[0]['model']['imputation']['imputed_cells'] == 35
+    for _, cached in model_cache.values():
+        assert 'target_date' not in cached and 'days' not in cached
+
+
+def test_imputation_failure_preserves_exclusion_reasons_without_claiming_a_fit(monkeypatch):
+    import numpy as np
+    arrange(monkeypatch, 'terrestrial')
+    rows = model_records()[:40]
+    for row in rows:
+        if row['presence'] == 0: row['air_temp'] = None
+    monkeypatch.setattr('analysis.prediction.align_history', AsyncMock(return_value=(rows, [])))
+    monkeypatch.setattr('analysis.imputation.proximity', lambda fitted, queries, donors: np.zeros((len(queries), len(donors))))
+    result = run(run_analysis(request(method='rf'), lambda _: None))
+    assert result['type'] == 'historical_profile' and 'model' not in result
+    assert 'Insufficient evidence' in result['summary']
+    assert len(result['evidence']['excluded_records']) == 20
+    assert all('positive' in row['reason'] for row in result['evidence']['excluded_records'])
+    assert 'usable_sightings' not in result['evidence']
+    assert 'training_records' not in result['evidence']

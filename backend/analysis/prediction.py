@@ -63,7 +63,8 @@ async def training(request, progress):
         return None, result
     progress('Generating reproducible background samples inside the study circle…')
     backgrounds = background_samples(records, request.target_lat, request.target_lng, radius)
-    aligned, excluded = await align_history(records + backgrounds, request.environment, progress)
+    aligned, excluded = await align_history(records + backgrounds, request.environment, progress,
+                                            retain_partial=request.method == 'rf')
     result['evidence'].update({'background_samples': len(backgrounds), 'excluded_records': excluded,
         'usable_sightings': sum(p['presence'] == 1 for p in aligned),
         'usable_background': sum(p['presence'] == 0 for p in aligned),
@@ -72,10 +73,27 @@ async def training(request, progress):
     try:
         model, metadata = await asyncio.to_thread(train_model, aligned, request.environment, request.method)
     except ValueError as exc:
+        if request.method == 'rf':
+            result['evidence']['excluded_records'].extend(getattr(exc, 'exclusions', []))
+            for key in ('usable_sightings', 'usable_background', 'training_records'):
+                result['evidence'].pop(key, None)
         result['summary'] = str(exc)
         result['warnings'].append('Environmental outlook unavailable; the historical profile remains available.')
         return None, result
     result['model'] = metadata
+    if request.method == 'rf':
+        imputation = metadata['imputation']
+        retained = metadata['training_records']
+        result['evidence'].update({key: imputation[key] for key in
+                                  ('complete_records', 'imputed_records', 'observed_cells', 'imputed_cells')})
+        result['evidence']['excluded_records'].extend(imputation['exclusions'])
+        result['evidence'].update(usable_sightings=sum(r['presence'] == 1 for r in retained),
+                                  usable_background=sum(r['presence'] == 0 for r in retained),
+                                  training_records=[{'id': r['id'], 'date': r['date']} for r in retained])
+        if imputation['imputed_records']:
+            result['warnings'].append(
+                f"Key Factors includes {imputation['imputed_cells']} estimated environmental values across "
+                f"{imputation['imputed_records']} records. Proximity imputation does not eliminate missingness bias.")
     result['type'] = 'environmental_outlook'
     if metadata['validation']['experimental']:
         result['warnings'].append('Experimental: both independent holdouts could not be evaluated.')
@@ -139,7 +157,7 @@ async def future_days(request, model, result, progress):
 
 
 async def run_analysis(request, progress, api_key=None):
-    key = (request.taxon_id, request.target_lat, request.target_lng, request.radius_km,
+    key = (MODEL_VERSION, request.taxon_id, request.target_lat, request.target_lng, request.radius_km,
            request.limit, request.environment, request.method, str(date.today()))
     if key in model_cache:
         model, cached = model_cache[key]
@@ -148,7 +166,9 @@ async def run_analysis(request, progress, api_key=None):
     else:
         model, result = await training(request, progress)
         if model is not None:
-            model_cache[key] = (model, copy.deepcopy(result))
+            cached_result = copy.deepcopy(result)
+            cached_result.pop('target_date', None)
+            model_cache[key] = (model, cached_result)
     if model is not None:
         if request.method == 'rf' and request.operation == 'single_day':
             result['summary'] = 'These are modeled associations with recorded sightings, not proof of ecological causes. Importance is shown below; this mode does not forecast an encounter.'
@@ -158,7 +178,22 @@ async def run_analysis(request, progress, api_key=None):
     progress('Preparing the evidence summary…')
     # Do not send exact coordinates or source records to the optional AI service.
     ai_evidence = {k: result[k] for k in ('type', 'summary', 'warnings')}
-    ai_evidence['model'] = result.get('model')
+    metadata = result.get('model')
+    if metadata:
+        # Imputation diagnostics contain per-record provenance; keep those out of AI requests.
+        ai_model = {k: metadata[k] for k in ('model_type', 'features', 'variable_importance', 'n_records')}
+        validation = metadata['validation']
+        ai_model['validation'] = {k: validation[k] for k in ('experimental', 'ranking_allowed')}
+        for split in ('spatial', 'chronological'):
+            item = validation[split]
+            ai_model['validation'][split] = ({k: v for k, v in item.items() if k != 'imputation'} if item else None)
+        if 'imputation' in metadata:
+            ai_model['imputation'] = {k: metadata['imputation'][k] for k in
+                ('method', 'version', 'parameters', 'donor_counts', 'complete_records',
+                 'imputed_records', 'observed_cells', 'imputed_cells')}
+        ai_evidence['model'] = ai_model
+    else:
+        ai_evidence['model'] = None
     result['interpretation'] = await asyncio.to_thread(generate_interpretation,
         request.species, ai_evidence, result['summary'], api_key)
     return result

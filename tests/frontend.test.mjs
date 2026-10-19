@@ -105,3 +105,13 @@ test('rerunning analysis uses the current personal key header without storing it
     assert.deepEqual(submissions.map(([,options])=>options.headers['X-Gemini-Key']),['first-personal-key','second-personal-key']);
     assert(submissions.every(([,options])=>!options.body.includes('personal-key')));
 });
+
+
+test('Key Factors discloses estimated inputs and distinguishes complete from imputed records',()=>{
+    const html=resultHtml({summary:'Associations',warnings:[],model:{variable_importance:{air_temp:1},imputation:{imputed_records:2}},
+        evidence:{sightings:20,radius_km:5,background_samples:20,excluded_records:[],usable_sightings:20,usable_background:20,
+            complete_records:38,imputed_records:2,observed_cells:118,imputed_cells:2},profile:[]});
+    assert(html.includes('38 complete records') && html.includes('2 retained through proximity imputation'));
+    assert(html.includes('118 observed environmental values') && html.includes('2 estimated values'));
+    assert(html.includes('importance bars depend partly on estimated') && html.includes('class="bar"'));
+});
