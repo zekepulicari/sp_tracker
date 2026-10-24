@@ -20,7 +20,12 @@ nav button[aria-current=page] { background:var(--green); color:white; }
 #map { height:100%; width:100%; z-index:0; }
 .map-tools { position:absolute; left:12px; top:90px; z-index:500; }
 .map-tools button { background:var(--paper); font-size:22px; padding:3px 12px; }
-.map-status { position:absolute; bottom:27px; left:12px; right:12px; width:fit-content; max-width:90%; margin:0; padding:6px 10px; color:#263c2e; background:#f4f1e8ed; border-radius:6px; z-index:500; font-size:12px; }
+.map-feedback { position:absolute; bottom:calc(var(--attribution-height, 20px) + 8px); left:12px; right:12px; display:flex; flex-direction:column; align-items:flex-start; gap:6px; z-index:500; pointer-events:none; }
+.map-status { display:flex; align-items:center; gap:8px; width:fit-content; max-width:100%; margin:0; padding:8px 10px; color:#263c2e; background:#f4f1e8f5; border-radius:6px; font-size:12px; pointer-events:auto; box-shadow:0 1px 5px #0003; }
+.map-status button { padding:4px 9px; font-size:12px; flex-shrink:0; }
+.observation-spinner { width:16px; height:16px; flex-shrink:0; border:2px solid #a3b18a; border-top-color:#344e41; border-radius:50%; animation:observation-spin .8s linear infinite; }
+@keyframes observation-spin { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .observation-spinner { animation:none; } }
 aside { overflow:auto; background:var(--forest); color:var(--paper); padding:24px; }
 h1 { font-size:25px; line-height:1.2; margin:5px 0 18px; letter-spacing:-.6px; }
 h2 { font-size:20px; line-height:1.3; }
