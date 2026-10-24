@@ -26,7 +26,9 @@ async def observations_fixture(url,params=None):
                 'geojson':{'coordinates':[lng,lat]},'quality_grade':'research','captive':False,
                 'taxon':{'id':9000001+i%12,'name':f'Fixture animal {i%12+1}',
                     'preferred_common_name':f'Synthetic animal {i%12+1}','rank':'species','ancestor_ids':[1], 'iconic_taxon_name':'Mammalia'}})
-        return {'total_results':60,'results':rows}
+        if params.get('id') is not None:
+            rows = [row for row in rows if row['id'] == int(params['id'])]
+        return {'total_results':len(rows),'results':rows}
     raise ValueError('Unexpected external request in offline acceptance mode.')
 
 async def local_fixture(request,progress):

@@ -1,4 +1,36 @@
-# Current test scope · 2026-10-19
+# Consecutive analysis results · 2026-10-24
+
+**21 backend cases passed across exactly three maintained test files.** All six frontend modules passed Node.js syntax checks. The existing Starlette TestClient deprecation warning remains. No endpoints, dependencies, or statistical policies changed; Docker was not rerun.
+
+The reported Environmental Outlook requests had completed with insufficient environmental evidence: 0 usable sightings and 31 usable backgrounds. Their historical fallback was difficult to distinguish from the preceding Historical Profile. The original completed result was checked with the new renderer and now shows an explicit unavailable heading, usable counts, the 135 exclusions, and a supporting-history label.
+
+Regression checks cover all six ordered transitions among Historical Profile, Environmental Outlook, and Key Factors in both environments, cached model isolation, seven-day comparison, missing forecasts, and insufficient-evidence fallbacks. Browser checks used a temporary, explicitly synthetic localhost fixture to verify immediate result replacement, all method transitions, unavailable headings/reasons, failure recovery, comparison eligibility after input edits, submitted-setting snapshots, refresh restoration, personal-key reruns with a non-secret dummy key, and discovery-to-species identity transfer.
+
+A temporary Node diagnostic additionally forced an obsolete polling error to arrive during a newer run: it did not overwrite that run, clear its saved task, or release its busy state. The same diagnostic checked submission failures, immutable snapshots, and refresh restoration. Neither temporary harness is part of the maintained test suite. Screenshots in the user's untracked `screenshots/` directory were left untouched.
+
+---
+
+# Faster map observations · 2026-10-24
+
+The maintained suite still has exactly **three test files**. **19 backend cases passed** after the map change; all six frontend modules passed Node.js syntax checks. The existing Starlette TestClient deprecation warning remains. Docker was not rerun; no dependencies or container settings changed.
+
+Map browsing now selects only needed iNaturalist v2 fields. Photo details are requested on popup open and preserve the contributor attribution and license. The map and photo caches are bounded, expire after one hour, and share identical in-flight requests. Complete cached extents can satisfy contained views; capped samples cannot. A 10-second server deadline includes gateway waiting and retries; the browser stops waiting after 12 seconds and offers Retry.
+
+Measured the same orca query around Punta Norte (`taxon_id=41521`, north `-42.02`, east `-63.68`, south `-42.14`, west `-63.86`):
+
+| Request | Before | After |
+| --- | ---: | ---: |
+| JSON payload, 45 records | 17,453,447 bytes | 10,215 bytes |
+| First request | 6.52 s | 1.82 s |
+| Identical cached repeat | 3.50 s | 0.032 s |
+
+These are local snapshots with live upstream data, not performance guarantees. The payload reduction is over 99.9%; source availability still affects the first uncached request. Live photo verification returned an attributed CC BY-NC photograph; no photographs were copied into the repository.
+
+Browser verification covered Punta Norte dots, immediate loading feedback, retained points while zooming, exact empty-result wording, independent tool instructions, map Retry, popup Retry, species invalidation, and a 390 px mobile viewport. A temporary localhost-only synthetic server supplied delayed, empty, and failed responses; it is not part of the release. Its request counters confirmed zero photo requests before opening a popup, and one map request across a subsequent contained zoom. Popup automatic panning no longer triggers a point refresh that closes the popup. Responsive feedback stays above the map's attribution control.
+
+---
+
+# Test scope reduction · 2026-10-19
 
 The maintained suite is limited to **three test files**, with **16 passing cases** across API handling, core analysis/discovery, and proximity imputation. Six other test files were removed rather than folding the entire previous suite into fewer files. The retained cases exercise both environmental settings, missing forecasts, exact polygon ranking, task completion, credential isolation, original-donor weighting, repeatability, held-out query isolation, and donor eligibility.
 

@@ -8,6 +8,16 @@ The Leaflet interface submits work to FastAPI. Two background workers run queued
 
 Training and prediction share feature names, units, and daily UTC aggregation. Records carry source IDs and dates; seeded backgrounds stay inside the same geodesic circle. Random Forest caches include the fitted training imputer, while request credentials and target dates stay outside cached model artifacts.
 
+## Analysis result state
+
+The frontend snapshots each submitted request, including its resolved species identity. Previous results are replaced by a named progress panel, and completed or unavailable results retain that submitted context even if the form changes while work is running. Existing API response shapes and statistical eligibility rules are unchanged.
+
+Historical evidence returned instead of an environmental model is explicitly labeled as supporting evidence. Known usable sighting/background counts and grouped exclusion reasons are visible; unavailable counts are labeled as unavailable rather than invented. A seven-day comparison without ranks is explicitly unavailable while keeping its conditions and supporting evidence.
+
+One generation token and abort controller belong to each run. Submission, status, result, and error handlers check that token before changing the UI or session task; terminal states clear polling timers and release busy controls. Refresh restores the original request snapshot and resumes polling. Personal-key reruns reuse the last submitted species request, with the current key passed separately in headers.
+
+The day-comparison action appears only for a completed Environmental Outlook matching the current species, environment, method, location, date, and sample size. It is hidden during processing, discovery, failures, and unrelated result types.
+
 ## API
 
 - `POST /api/analysis/run`: resolved `species`, positive `taxon_id`, `environment` (`terrestrial`/`marine`), `target_lat`, `target_lng`, ISO `target_date`; optional `method` (`glm`/`rf`/`rustic`), `operation` (`single_day`/`compare_days`), `limit` (100–500), and `radius_km` (5–50).
@@ -15,8 +25,12 @@ Training and prediction share feature names, units, and daily UTC aggregation. R
 - Species requests may include an optional `X-Gemini-Key` header for a request-scoped AI summary override. Invalid formats are rejected before queueing without reflecting the key.
 - Both return `task_id`. Poll `GET /api/analysis/status/{task_id}`; fetch `GET /api/analysis/results/{task_id}` on completion.
 - Job states: queued, running, complete, failed, expired. Incomplete results return 202, expired results 410, missing jobs 404, and busy queues 429. Two jobs run concurrently, eight can wait, results remain for 24 hours; a one-hour expiry tombstone permits recovery messaging. Retained task count is bounded.
-- `GET /api/observations` returns a disclosed 100-record map sample. `POST /api/observations/within` returns exact polygon-filtered records from a disclosed 200-record sample for the requested species.
+- `GET /api/observations` returns a disclosed 100-record map sample with only coordinates, numeric observation ID, date, species name, observer, location, `total_results`, `sample_cap`, and `complete`. Map browsing uses iNaturalist v2 field selection; analysis and discovery keep their existing source requests.
+- `GET /api/observations/{id}` accepts a positive numeric ID and returns `{id, photos}` with at most the first available photo URL, contributor attribution, and license. The browser calls this only when opening a popup.
+- `POST /api/observations/within` returns exact polygon-filtered records from a disclosed 200-record sample for the requested species.
 - Interactive API schemas: `/docs`. Same-origin by default; additional CORS origins must be explicitly set in `ALLOWED_ORIGINS`.
+
+Map responses and photo metadata are cached for one hour in a bounded 256-entry cache. Identical in-flight requests share upstream work. A complete cached extent can cover a contained viewport; capped samples cannot. The frontend keeps up to 20 map extents and 100 popup responses for one hour. Map calls have a 10-second total server deadline, including waiting and retries, returning 504 on timeout; upstream failures return 503. The frontend enforces a 12-second request timeout and offers Retry. Neither failure is cached. Browser movement cancels obsolete requests; generation checks reject late responses. Popup auto-pans do not reload the map. Loading feedback is separate from map-tool instructions.
 
 The shared gateway bounds upstream concurrency, enforces per-service rolling request and daily budgets, uses timeouts, and retries transient network/server failures at most twice. Quota errors stop the request. Completed discovery evidence is cached for 24 hours; trained local models for one hour.
 
@@ -46,6 +60,7 @@ node --check frontend/analysis.js
 node --check frontend/tools.js
 node --check frontend/state.js
 node --check frontend/settings.js
+node --check frontend/observations.js
 docker compose config --quiet
 docker build -t species-tracker:check .
 ```

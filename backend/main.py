@@ -4,7 +4,7 @@ from datetime import date
 from typing import Literal
 import math
 import re
-from fastapi import FastAPI, HTTPException, Request, Query
+from fastapi import FastAPI, HTTPException, Request, Query, Path
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
@@ -16,6 +16,7 @@ from analysis.data_ingestion import INAT, parse_observation
 from analysis.prediction import run_analysis as analyze
 from analysis.discovery import run_discovery, GROUPS
 from upstream import gateway, UpstreamError
+from map_observations import map_observations, map_photo, close_map_requests
 
 @asynccontextmanager
 async def lifespan(app):
@@ -23,6 +24,7 @@ async def lifespan(app):
     await app.state.jobs.start()
     yield
     await app.state.jobs.stop()
+    await close_map_requests()
     await gateway.close()
 
 app = FastAPI(title='Species Tracker', version=MODEL_VERSION, lifespan=lifespan)
@@ -106,13 +108,14 @@ async def observations(taxon_id: int = Query(default=TAXON_ID, gt=0),
     bounds = [nelat, nelng, swlat, swlng]
     if any(v is not None for v in bounds) and not all(v is not None and math.isfinite(v) for v in bounds):
         raise HTTPException(422, detail='Supply all four finite bounding coordinates.')
-    params = {'taxon_id': taxon_id, 'per_page': 100, 'geo': 'true', 'captive': 'false'}
     if nelat is not None:
         if nelat <= swlat or nelng <= swlng:
             raise HTTPException(422, detail='Provide a non-crossing map extent.')
-        params.update(nelat=nelat, nelng=nelng, swlat=swlat, swlng=swlng)
-    data = await cached_get('observations', params)
-    return {**data, 'sample_cap': 100, 'complete': data.get('total_results', 0) <= 100}
+    return await map_observations(taxon_id, bounds if nelat is not None else None)
+
+@app.get('/api/observations/{observation_id}')
+async def observation_details(observation_id: int = Path(gt=0)):
+    return await map_photo(observation_id)
 
 @app.post('/api/observations/within')
 async def observations_within(body: PolygonRequest):

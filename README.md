@@ -24,6 +24,8 @@ It is a focused portfolio project combining geographic analysis, public data ing
 
 Search by common or scientific name, select an explicit Terrestrial or Marine setting, and inspect the evidence behind each result. The browser remembers your last species and environmental setting and can resume an active task after refresh in the same tab.
 
+The map uses overview tiles when zoomed out and a capped sample of individual observations when zoomed in. Loading and updating indicators explain what is happening; previous points or the grid remain visible while a new view loads. Photos load when you open a point, with contributor credits and license information. Slow or failed requests offer Retry.
+
 ## Run locally
 
 Open a terminal in the **project root**, the folder containing this README. Choose either Python or Docker; both serve the app at **[http://127.0.0.1:8000/](http://127.0.0.1:8000/)** and use the same port.
@@ -103,6 +105,8 @@ A personal key stays only in the page's memory and is cleared on refresh or when
 ## How the analyses work
 
 Two methods summarize observations. Two fit statistical models. The day comparison reuses an existing model rather than introducing another one.
+
+You can run the methods consecutively without refreshing. Each request replaces the previous result with a named progress panel and retains its submitted species, environment, and date. If an environmental method cannot be produced, the result explicitly says **Environmental Outlook unavailable** or **Key Factors unavailable**, explains the data limits, and labels any monthly chart as supporting historical evidence.
 
 | Method | Main purpose | Fits an environmental model? |
 | --- | --- | --- |
@@ -277,7 +281,7 @@ The retained [selected-area reference image](resources/images/selected_area_exam
 
 | Source | Contribution and attribution |
 | --- | --- |
-| [iNaturalist API](https://api.inaturalist.org/v1/docs/) | Wildlife observations, taxonomy, and observation grid tiles, contributed by the iNaturalist community. Source observation links identify the underlying records. |
+| [iNaturalist API v1](https://api.inaturalist.org/v1/docs/) and [v2](https://api.inaturalist.org/v2/docs/) | Wildlife observations, taxonomy, and observation grid tiles, contributed by the iNaturalist community. Source observation links identify the underlying records. |
 | [Open-Meteo Weather](https://open-meteo.com/en/docs), [Historical Weather](https://open-meteo.com/en/docs/historical-weather-api), and [Marine](https://open-meteo.com/en/docs/marine-weather-api) | Weather data by [Open-Meteo.com](https://open-meteo.com/), with upstream weather-service credits listed on its [data sources and license page](https://open-meteo.com/en/licence). Species Tracker aggregates hourly values into daily predictors and derives statistical outputs from them. |
 | [OpenStreetMap](https://www.openstreetmap.org/) | Light basemap: © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright). |
 | [Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9) | Satellite basemap supplied by Esri and its imagery contributors. Consult the source item's credits and terms for the imagery being used. |
