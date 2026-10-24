@@ -9,6 +9,8 @@ from analysis.geo import validate_polygon
 from analysis.discovery import rank_observations
 from analysis.data_ingestion import environmental_days
 from analysis.probability_model import train_model, predict
+from main import AnalysisRequest
+from analysis import prediction as pipeline
 
 RING=[[0,0],[1,0],[1,1],[0,1],[0,0]]
 
@@ -58,3 +60,47 @@ def test_ranking_exact_boundary_filters_and_ties():
     assert [s['taxon_id'] for s in animals]==[10,20,30]
     assert count==5 and animals[2]['evidence_label']=='Single recorded sighting'
     assert animals[0]['years']==[2023,2024]
+
+
+@pytest.mark.parametrize('environment', ['terrestrial', 'marine'])
+def test_consecutive_methods_comparison_and_unavailable_evidence(monkeypatch, environment):
+    """Method switches must not inherit the previous method's result or cached forecast."""
+    rows = model_records(environment)
+    sightings = [{**row, 'month': int(row['date'][5:7])} for row in rows if row['presence'] == 1]
+    pipeline.model_cache.clear()
+    monkeypatch.setattr(pipeline, 'collect_local', AsyncMock(return_value=(sightings, 5, {'complete': True})))
+    align = AsyncMock(return_value=(rows, []))
+    monkeypatch.setattr(pipeline, 'align_history', align)
+    monkeypatch.setattr(pipeline, 'generate_interpretation', lambda species, evidence, fallback, key=None:
+                        {'text': fallback, 'source': 'fixture'})
+    missing_forecast = False
+    async def weather(lat, lng, start, end, env, forecast=False):
+        return {str(start + timedelta(days=i)): {key: None if missing_forecast else 14.
+                for key in ENVIRONMENTS[env]} for i in range((end-start).days + 1)}, []
+    monkeypatch.setattr(pipeline, 'environmental_days', weather)
+    def request(method, operation='single_day'):
+        return AnalysisRequest(species='Synthetic animal', taxon_id=42, environment=environment,
+            method=method, operation=operation, target_lat=0, target_lng=0, target_date=date.today(), limit=100)
+    async def scenario():
+        for method in ('rustic', 'glm', 'rf', 'glm', 'rustic', 'rf', 'rustic'):
+            result = await pipeline.run_analysis(request(method), lambda _: None, '')
+            assert result['environment'] == environment
+            assert (method == 'rustic') == ('model' not in result)
+            assert (method == 'glm') == bool(result.get('days'))
+            assert (method == 'rf') == bool(result.get('model', {}).get('variable_importance'))
+        comparison = await pipeline.run_analysis(request('glm', 'compare_days'), lambda _: None, '')
+        assert comparison['type'] == 'day_comparison' and len(comparison['days']) == 7
+    run(scenario())
+    missing_forecast = True
+    missing = run(pipeline.run_analysis(request('glm'), lambda _: None, ''))
+    assert missing['profile'] and not missing['days'][0]['available']
+    assert 'relative_score' not in missing['days'][0]
+    pipeline.model_cache.clear()
+    align.return_value = ([row for row in rows if row['presence'] == 0][:31],
+                          [{'id': row['id'], 'date': row['date'], 'reason': 'Incomplete environmental data.'}
+                           for row in sightings])
+    for method in ('glm', 'rf'):
+        fallback = run(pipeline.run_analysis(request(method), lambda _: None, ''))
+        assert fallback['type'] == 'historical_profile' and fallback['profile'] and 'model' not in fallback
+        assert 'Insufficient evidence' in fallback['summary'] and fallback['evidence']['excluded_records']
+    pipeline.model_cache.clear()

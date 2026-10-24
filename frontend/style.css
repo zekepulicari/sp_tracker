@@ -24,8 +24,11 @@ nav button[aria-current=page] { background:var(--green); color:white; }
 .map-status { display:flex; align-items:center; gap:8px; width:fit-content; max-width:100%; margin:0; padding:8px 10px; color:#263c2e; background:#f4f1e8f5; border-radius:6px; font-size:12px; pointer-events:auto; box-shadow:0 1px 5px #0003; }
 .map-status button { padding:4px 9px; font-size:12px; flex-shrink:0; }
 .observation-spinner { width:16px; height:16px; flex-shrink:0; border:2px solid #a3b18a; border-top-color:#344e41; border-radius:50%; animation:observation-spin .8s linear infinite; }
+.analysis-loading h2 { display:flex; align-items:center; gap:10px; }
+.analysis-loading h2::before { content:''; flex-shrink:0; width:18px; height:18px; border:2px solid var(--sage); border-top-color:var(--paper); border-radius:50%; animation:observation-spin .8s linear infinite; }
+.card.unavailable-result { border-left:4px solid #e4c276; }
 @keyframes observation-spin { to { transform:rotate(360deg); } }
-@media(prefers-reduced-motion:reduce) { .observation-spinner { animation:none; } }
+@media(prefers-reduced-motion:reduce) { .observation-spinner,.analysis-loading h2::before { animation:none; } }
 aside { overflow:auto; background:var(--forest); color:var(--paper); padding:24px; }
 h1 { font-size:25px; line-height:1.2; margin:5px 0 18px; letter-spacing:-.6px; }
 h2 { font-size:20px; line-height:1.3; }

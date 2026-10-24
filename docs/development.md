@@ -8,6 +8,16 @@ The Leaflet interface submits work to FastAPI. Two background workers run queued
 
 Training and prediction share feature names, units, and daily UTC aggregation. Records carry source IDs and dates; seeded backgrounds stay inside the same geodesic circle. Random Forest caches include the fitted training imputer, while request credentials and target dates stay outside cached model artifacts.
 
+## Analysis result state
+
+The frontend snapshots each submitted request, including its resolved species identity. Previous results are replaced by a named progress panel, and completed or unavailable results retain that submitted context even if the form changes while work is running. Existing API response shapes and statistical eligibility rules are unchanged.
+
+Historical evidence returned instead of an environmental model is explicitly labeled as supporting evidence. Known usable sighting/background counts and grouped exclusion reasons are visible; unavailable counts are labeled as unavailable rather than invented. A seven-day comparison without ranks is explicitly unavailable while keeping its conditions and supporting evidence.
+
+One generation token and abort controller belong to each run. Submission, status, result, and error handlers check that token before changing the UI or session task; terminal states clear polling timers and release busy controls. Refresh restores the original request snapshot and resumes polling. Personal-key reruns reuse the last submitted species request, with the current key passed separately in headers.
+
+The day-comparison action appears only for a completed Environmental Outlook matching the current species, environment, method, location, date, and sample size. It is hidden during processing, discovery, failures, and unrelated result types.
+
 ## API
 
 - `POST /api/analysis/run`: resolved `species`, positive `taxon_id`, `environment` (`terrestrial`/`marine`), `target_lat`, `target_lng`, ISO `target_date`; optional `method` (`glm`/`rf`/`rustic`), `operation` (`single_day`/`compare_days`), `limit` (100–500), and `radius_km` (5–50).

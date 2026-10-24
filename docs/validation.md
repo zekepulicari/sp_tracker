@@ -1,3 +1,15 @@
+# Consecutive analysis results · 2026-10-24
+
+**21 backend cases passed across exactly three maintained test files.** All six frontend modules passed Node.js syntax checks. The existing Starlette TestClient deprecation warning remains. No endpoints, dependencies, or statistical policies changed; Docker was not rerun.
+
+The reported Environmental Outlook requests had completed with insufficient environmental evidence: 0 usable sightings and 31 usable backgrounds. Their historical fallback was difficult to distinguish from the preceding Historical Profile. The original completed result was checked with the new renderer and now shows an explicit unavailable heading, usable counts, the 135 exclusions, and a supporting-history label.
+
+Regression checks cover all six ordered transitions among Historical Profile, Environmental Outlook, and Key Factors in both environments, cached model isolation, seven-day comparison, missing forecasts, and insufficient-evidence fallbacks. Browser checks used a temporary, explicitly synthetic localhost fixture to verify immediate result replacement, all method transitions, unavailable headings/reasons, failure recovery, comparison eligibility after input edits, submitted-setting snapshots, refresh restoration, personal-key reruns with a non-secret dummy key, and discovery-to-species identity transfer.
+
+A temporary Node diagnostic additionally forced an obsolete polling error to arrive during a newer run: it did not overwrite that run, clear its saved task, or release its busy state. The same diagnostic checked submission failures, immutable snapshots, and refresh restoration. Neither temporary harness is part of the maintained test suite. Screenshots in the user's untracked `screenshots/` directory were left untouched.
+
+---
+
 # Faster map observations · 2026-10-24
 
 The maintained suite still has exactly **three test files**. **19 backend cases passed** after the map change; all six frontend modules passed Node.js syntax checks. The existing Starlette TestClient deprecation warning remains. Docker was not rerun; no dependencies or container settings changed.

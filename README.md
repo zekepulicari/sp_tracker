@@ -106,6 +106,8 @@ A personal key stays only in the page's memory and is cleared on refresh or when
 
 Two methods summarize observations. Two fit statistical models. The day comparison reuses an existing model rather than introducing another one.
 
+You can run the methods consecutively without refreshing. Each request replaces the previous result with a named progress panel and retains its submitted species, environment, and date. If an environmental method cannot be produced, the result explicitly says **Environmental Outlook unavailable** or **Key Factors unavailable**, explains the data limits, and labels any monthly chart as supporting historical evidence.
+
 | Method | Main purpose | Fits an environmental model? |
 | --- | --- | --- |
 | Historical Profile | Explore when sightings were recorded. | No |

@@ -1,13 +1,14 @@
 import {Selection, label, localDate} from './state.js';
 import {MapTools} from './tools.js';
 import {ObservationMap} from './observations.js?v=2.3';
-import {setupAnalysis} from './analysis.js?v=2.2';
+import {setupAnalysis} from './analysis.js?v=2.4';
 import {setupApiSettings} from './settings.js?v=2.2';
 
 const $ = id => document.getElementById(id);
 let storage;
 try { storage = window.localStorage; } catch { storage = null; }
 const selection = new Selection(storage);
+let analysis;
 const input = $('analysis-species');
 input.value = label(selection.species);
 $('analysis-environment').value = selection.environment;
@@ -45,9 +46,9 @@ function refreshSpecies() {
 const tools = new MapTools(map, {
     message:status,
     point:point => {
-        $('btn-compare-days').hidden = true;
         $('target-lat').value = point.lat.toFixed(5); $('target-lng').value = point.lng.toFixed(5);
         $('prediction-location-display').textContent = `Study location: ${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}. Radius starts at 5 km.`;
+        analysis?.inputsChanged();
     },
     polygon:polygon => {
         $('polygon-status').textContent = polygon ? `Area selected with ${polygon.coordinates[0].length-1} vertices. Submit to validate the boundary and count seasonal records.` : 'No area selected. Draw an area first.';
@@ -68,7 +69,7 @@ $('btn-use-coordinates').addEventListener('click', () => {
 });
 $('analysis-environment').addEventListener('change', event => {
     selection.setEnvironment(event.target.value);
-    $('btn-compare-days').hidden = true;
+    analysis?.inputsChanged();
 });
 
 let searchTimer, searchController, options = [], active = -1;
@@ -77,7 +78,7 @@ function hideOptions() { list.hidden = true; input.setAttribute('aria-expanded',
 function choose(species) {
     selection.select({id:species.id, name:species.name, common_name:species.preferred_common_name || species.common_name || ''});
     input.value = label(selection.species); hideOptions(); refreshSpecies();
-    $('btn-compare-days').hidden = true;
+    analysis?.inputsChanged();
 }
 function highlight(index) {
     active = index;
@@ -85,8 +86,7 @@ function highlight(index) {
     if (active >= 0) { input.setAttribute('aria-activedescendant',`species-option-${active}`); list.children[active]?.scrollIntoView({block:'nearest'}); }
 }
 input.addEventListener('input', () => {
-    selection.invalidate(); refreshSpecies(); hideOptions(); clearTimeout(searchTimer); searchController?.abort();
-    $('btn-compare-days').hidden = true;
+    selection.invalidate(); refreshSpecies(); analysis?.inputsChanged(); hideOptions(); clearTimeout(searchTimer); searchController?.abort();
     const query = input.value.trim();
     if (query.length < 3) return;
     searchTimer = setTimeout(async () => {
@@ -121,5 +121,5 @@ const credentials = setupApiSettings({
     isBusy: () => analysis.isBusy(),
     explore: () => showPage('home'),
 });
-const analysis = setupAnalysis({selection, tools, choose, map, apiHeaders:credentials.headers});
+analysis = setupAnalysis({selection, tools, choose, map, apiHeaders:credentials.headers});
 refreshSpecies();
