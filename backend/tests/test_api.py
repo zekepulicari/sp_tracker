@@ -42,6 +42,14 @@ def test_analysis_and_discovery_end_to_end(monkeypatch):
             assert client.get(f'/api/analysis/results/{task_id}').status_code==200
 
 
+def test_invalid_centered_discovery_dates_rejected_before_queue():
+    with TestClient(app) as client:
+        for day in ('0001-01-01','9999-12-31','2026-02-30'):
+            response = client.post('/api/discovery/run',json={
+                'polygon':{'type':'Polygon','coordinates':[RING]},'target_date':day})
+            assert response.status_code == 422 and not app.state.jobs.records
+
+
 def test_personal_keys_are_scoped_to_jobs_and_never_returned(monkeypatch):
     analyze = AsyncMock(return_value={'type': 'historical_profile', 'summary': 'done'})
     monkeypatch.setattr('main.analyze', analyze)

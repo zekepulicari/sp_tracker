@@ -1,3 +1,19 @@
+# Centered discovery week and direct day comparison · 2026-10-25
+
+Animals Nearby now matches seven calendar dates centered on the selected date (three before, that date, three after) across the existing ten-year historical evidence period. Date previews and results disclose both endpoints. Separate month/day requests handle month/year crossings under one shared cap; exact server filtering rechecks dates and polygon membership. Window-versioned cache keys prevent monthly or neighboring-window reuse. Old saved monthly results are explicitly identified. Weather remains separate context for the selected central date.
+
+Live iNaturalist discovery was checked in the coastal polygon bounded by latitude -42.61 to -42.56 and longitude -64.34 to -64.28. Selecting **2026-10-20** matched **October 17–23** and returned **29** eligible observations; the Top 10 began with Eubalaena australis (7) and Otaria flavescens (6). Selecting **2026-11-01** matched **October 29–November 4**, returned **38**, and began with Otaria flavescens (8) and Eubalaena australis (6). Repeating October 20 preserved the original source timestamp, confirming reuse of its completed evidence. These are dated upstream snapshots, not encounter probabilities or guaranteed future totals.
+
+The previously conditional When should I go? action is now visible directly in species controls. It requires a resolved animal and applied location and submits current inputs for the next forecast week. No preceding analysis is required; unsupported rankings still return explicit limitations. A temporary lifecycle diagnostic verified current species/location/setting snapshots, the unapplied-coordinate guard, failure recovery, obsolete responses, and restoration of discovery polygons and centered dates.
+
+A live direct comparison for Orcinus orca in Marine at Punta Norte (-42.0784885368209, -63.7558937072754; 5 km initial radius; cap 200) completed with an explicit unavailable result: 81 retrieved sightings, 0 complete usable sightings, 31 usable backgrounds, and 131 exclusions. Missing cells affected sea temperature in 127 records, wave height in 120, and current velocity in 115 (counts overlap). No model was fitted and no day was recommended. The button remained visible and enabled afterward; analytical coverage and validation requirements were preserved.
+
+**40 backend cases passed across exactly three maintained test files.** Added coverage includes centered endpoints, month/year crossings, leap and non-leap calendar matching, historical limits, neighbor-window cache isolation, combined caps, interrupted/incomplete segments, and invalid date limits rejected before queueing. Seven frontend syntax checks, Python compilation, and Git whitespace checks passed; the existing Starlette deprecation warning remains. No dependencies or container configuration changed; Docker was not rerun.
+
+Browser checks used the explicitly labeled synthetic fixture for polygon drawing, October 20 → October 17–23 results, a New Year empty result, central-day weather, transfer into detailed species analysis, and direct seven-day rankings in both environmental settings. The action worked before any single-day analysis and after selecting a discovered species. At 390 px width, preview/results caused no horizontal page overflow. Temporary rendering checks covered UTC arithmetic, invalid dates, and honest labeling of legacy monthly results. User screenshots were left untouched.
+
+---
+
 # Available results and evidence warnings · 2026-10-25
 
 Investigated the user's open Otaria flavescens run (taxon 41761, Terrestrial, study point -42.58579972530433 / -64.3080837731745, 5 km radius, cap 500, target date 2026-10-25). All three methods completed using live iNaturalist/Open-Meteo evidence. These are dated local snapshots, not guaranteed reproduction of a changing upstream dataset.

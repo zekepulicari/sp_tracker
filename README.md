@@ -18,7 +18,7 @@ It is a focused portfolio project combining geographic analysis, public data ing
 
 | Your question | App workflow | What you get |
 | --- | --- | --- |
-| What animals could I look for here? | **Animals nearby** | Up to ten species ranked by historical sightings inside a polygon during the selected month. |
+| What animals could I look for here? | **Animals nearby** | Up to ten species ranked by historical sightings inside a polygon during the selected date ±3 days. |
 | How do conditions look for one animal? | **Species outlook** | A historical sightings profile, an environmental outlook, or Random Forest variable importance. |
 | Which upcoming day looks most favorable? | **When should I go?** | A comparison of supported days using the same local model, when validation supports ranking. |
 
@@ -175,19 +175,21 @@ The result distinguishes complete, imputed, and excluded records. This method de
 
 ### Animals Nearby: seasonal Top 10
 
-Fetches eligible wild-animal observations for the selected month over the preceding ten years, ending yesterday. It filters the polygon exactly, includes boundary points, combines subspecies under species, and ranks by observation count, distinct observation dates, then taxon ID.
+Fetches eligible wild-animal observations for a **seven-day window centered on the selected date**: three days before, the selected date, and three days after. For **20 October**, this is **17–23 October**, inclusive. It matches those seven month/day dates over the preceding ten years, ending yesterday. The controls and results show the exact interval, including month/year crossings.
 
-**Example:** two dates in October use the same historical seasonal evidence for the same area and evidence snapshot. The day's weather is shown separately and does not change the ranking.
+It filters the polygon exactly, includes boundary points, combines subspecies under species, and ranks by observation count, distinct observation dates, then taxon ID. Cross-month windows query each month's matching days separately and share one 5,000-record cap; incomplete queries never produce a partial ranking. February 29 contributes only in historical leap years when it belongs to the selected seven calendar dates. A narrower window can have fewer recorded species than the former monthly query.
+
+**Example:** 20 October uses historical records from 17–23 October; 21 October uses 18–24 October, so the ranking can change. Weather for the selected central day is shown separately and does not change the ranking.
 
 This is not ten environmental models. If fewer species have evidence, fewer than ten appear. Queries exceeding the configurable 5,000-record bounding-box cap—or interrupted pagination—fail explicitly rather than showing an incomplete ranking as complete.
 
 ![Synthetic discovery example showing a polygon and seasonal species evidence](docs/screenshots/discovery.jpg)
 
-*Offline acceptance example. The polygon, species names, and sightings are test fixtures; they demonstrate the workflow rather than a real animal distribution.*
+*Offline acceptance example from the earlier interface; current discovery uses the selected date ±3 days. The polygon, species names, and sightings are test fixtures; they demonstrate the workflow rather than a real animal distribution.*
 
 ### When should I go?: compare supported days
 
-After an Environmental Outlook produces a usable model, this action reuses it across the next seven days starting today. Species, study circle, model, and environmental setting stay fixed.
+Choose a resolved species, environmental setting, and study location, then click **When should I go? · next seven days**. The action is always visible in the species controls and becomes enabled when those inputs are ready; no previous analysis is required. Apply edited coordinates with **Use these coordinates** before comparing. It runs Environmental Outlook directly, fitting one local logistic model or reusing a matching cached model across the next seven days starting today. Species, study circle, model, and environmental setting stay fixed within the comparison.
 
 A ranking requires both validation checks to beat the seasonal baseline, at least two complete days inside the environmental training ranges, and differing scores. Unsupported days are excluded. Otherwise, the app shows conditions and explains why a reliable ranking is unavailable.
 

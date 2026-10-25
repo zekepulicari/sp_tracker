@@ -14,7 +14,7 @@ from jobs import Jobs, BusyError
 from analysis.geo import validate_polygon, inside
 from analysis.data_ingestion import INAT, parse_observation
 from analysis.prediction import run_analysis as analyze
-from analysis.discovery import run_discovery, GROUPS
+from analysis.discovery import run_discovery, GROUPS, centered_dates
 from upstream import gateway, UpstreamError
 from map_observations import map_observations, map_photo, close_map_requests
 from analysis.requirements import analysis_requirements
@@ -73,6 +73,12 @@ class DiscoveryRequest(InputModel):
     polygon: GeoJSONPolygon
     target_date: date
     animal_group: Literal['all', 'birds', 'mammals', 'reptiles', 'amphibians', 'fish', 'insects', 'arachnids', 'mollusks'] = 'all'
+
+    @field_validator('target_date')
+    @classmethod
+    def supported_discovery_window(cls, value):
+        centered_dates(value)
+        return value
 
 async def cached_get(path, params):
     key = (path, tuple(sorted(params.items())))
