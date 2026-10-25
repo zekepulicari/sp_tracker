@@ -1,0 +1,304 @@
+{
+  "captured_on": "2026-10-25",
+  "capture_type": "Unmodified application screenshots using live public API results; no synthetic fixtures.",
+  "random_forest": {
+    "image": "docs/screenshots/random-forest.jpg",
+    "request": {
+      "species": "Otaria flavescens",
+      "taxon_id": 41761,
+      "environment": "terrestrial",
+      "method": "rf",
+      "operation": "single_day",
+      "limit": 500,
+      "target_lat": -42.58579972530433,
+      "target_lng": -64.3080837731745,
+      "target_date": "2026-10-25",
+      "radius_km": 5
+    },
+    "sources": [
+      "https://api.inaturalist.org/v1/docs/",
+      "https://open-meteo.com/en/docs/historical-weather-api"
+    ],
+    "result": {
+      "model_version": "2.2.1",
+      "fetched_at": "2026-10-25T14:02:54.707128+00:00",
+      "date_start": "2017-02-06",
+      "date_end": "2026-10-10",
+      "radius_km": 5.0,
+      "counts": {
+        "aligned_sightings": 170,
+        "aligned_background": 170,
+        "usable_sightings": 170,
+        "usable_background": 170,
+        "usable_total": 340
+      },
+      "excluded_records": 0,
+      "complete_records": 340,
+      "imputed_records": 0,
+      "variable_importance": {
+        "air_temp": 0.3906,
+        "wind_speed": 0.31859,
+        "precipitation": 0.08764,
+        "season_sin": 0.10191,
+        "season_cos": 0.10125
+      },
+      "validation": {
+        "spatial": {
+          "model": {
+            "auc": 0.4895,
+            "balanced_accuracy": 0.4757
+          },
+          "seasonal_baseline": {
+            "auc": 0.4163,
+            "balanced_accuracy": 0.5
+          },
+          "improves_baseline": false,
+          "n_train": 137,
+          "n_test": 203
+        },
+        "chronological": {
+          "model": {
+            "auc": 0.6897,
+            "balanced_accuracy": 0.6237
+          },
+          "seasonal_baseline": {
+            "auc": 0.6431,
+            "balanced_accuracy": 0.5624
+          },
+          "improves_baseline": true,
+          "n_train": 265,
+          "n_test": 75,
+          "cutoff": "2024-11-02"
+        },
+        "ranking_allowed": false,
+        "experimental": false,
+        "unavailable_reasons": {}
+      }
+    }
+  },
+  "discovery": {
+    "image": "docs/screenshots/discovery.jpg",
+    "request": {
+      "polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -64.33834075927736,
+              -42.56041422180391
+            ],
+            [
+              -64.27791595458986,
+              -42.56041422180391
+            ],
+            [
+              -64.27791595458986,
+              -42.61096959812048
+            ],
+            [
+              -64.33834075927736,
+              -42.61096959812048
+            ],
+            [
+              -64.33834075927736,
+              -42.56041422180391
+            ]
+          ]
+        ]
+      },
+      "target_date": "2026-10-20",
+      "animal_group": "all"
+    },
+    "source": "https://api.inaturalist.org/v1/docs/",
+    "result": {
+      "fetched_at": "2026-10-25T14:09:22.454174+00:00",
+      "seasonal_window": {
+        "start": "2026-10-17",
+        "end": "2026-10-23",
+        "calendar_dates": [
+          "10-17",
+          "10-18",
+          "10-19",
+          "10-20",
+          "10-21",
+          "10-22",
+          "10-23"
+        ],
+        "days_before": 3,
+        "days_after": 3,
+        "version": "centered-7-v1"
+      },
+      "evidence_window": {
+        "start": "2016-10-25",
+        "end": "2026-10-24"
+      },
+      "area_km2": 27.855,
+      "records_inside": 35,
+      "bbox_records": 35,
+      "complete": true,
+      "species": [
+        {
+          "taxon_id": 41571,
+          "name": "Eubalaena australis",
+          "common_name": "Southern Right Whale",
+          "count": 7,
+          "rank": 1,
+          "distinct_dates": 6,
+          "years": [
+            2017,
+            2019,
+            2021,
+            2022,
+            2024
+          ],
+          "latest_sighting": "2024-10-19",
+          "evidence_label": "7 recorded sightings",
+          "source_url": "https://www.inaturalist.org/taxa/41571"
+        },
+        {
+          "taxon_id": 41761,
+          "name": "Otaria flavescens",
+          "common_name": "South American Sea Lion",
+          "count": 6,
+          "rank": 2,
+          "distinct_dates": 6,
+          "years": [
+            2018,
+            2019,
+            2021,
+            2024,
+            2025
+          ],
+          "latest_sighting": "2025-10-20",
+          "evidence_label": "6 recorded sightings",
+          "source_url": "https://www.inaturalist.org/taxa/41761"
+        },
+        {
+          "taxon_id": 979888,
+          "name": "Rhopospina fruticeti",
+          "common_name": "Mourning Sierra-Finch",
+          "count": 4,
+          "rank": 3,
+          "distinct_dates": 3,
+          "years": [
+            2024,
+            2026
+          ],
+          "latest_sighting": "2026-10-23",
+          "evidence_label": "4 recorded sightings",
+          "source_url": "https://www.inaturalist.org/taxa/979888"
+        },
+        {
+          "taxon_id": 4388,
+          "name": "Larus dominicanus",
+          "common_name": "Kelp Gull",
+          "count": 2,
+          "rank": 4,
+          "distinct_dates": 2,
+          "years": [
+            2018,
+            2019
+          ],
+          "latest_sighting": "2019-10-22",
+          "evidence_label": "2 recorded sightings",
+          "source_url": "https://www.inaturalist.org/taxa/4388"
+        },
+        {
+          "taxon_id": 11866,
+          "name": "Progne elegans",
+          "common_name": "Southern Martin",
+          "count": 2,
+          "rank": 5,
+          "distinct_dates": 2,
+          "years": [
+            2024,
+            2025
+          ],
+          "latest_sighting": "2025-10-20",
+          "evidence_label": "2 recorded sightings",
+          "source_url": "https://www.inaturalist.org/taxa/11866"
+        },
+        {
+          "taxon_id": 72660,
+          "name": "Chionis albus",
+          "common_name": "Snowy Sheathbill",
+          "count": 2,
+          "rank": 6,
+          "distinct_dates": 2,
+          "years": [
+            2018,
+            2026
+          ],
+          "latest_sighting": "2026-10-23",
+          "evidence_label": "2 recorded sightings",
+          "source_url": "https://www.inaturalist.org/taxa/72660"
+        },
+        {
+          "taxon_id": 84640,
+          "name": "Polistes dominula",
+          "common_name": "European Paper Wasp",
+          "count": 2,
+          "rank": 7,
+          "distinct_dates": 1,
+          "years": [
+            2025
+          ],
+          "latest_sighting": "2025-10-20",
+          "evidence_label": "2 recorded sightings",
+          "source_url": "https://www.inaturalist.org/taxa/84640"
+        },
+        {
+          "taxon_id": 4454,
+          "name": "Sterna hirundinacea",
+          "common_name": "South American Tern",
+          "count": 1,
+          "rank": 8,
+          "distinct_dates": 1,
+          "years": [
+            2024
+          ],
+          "latest_sighting": "2024-10-19",
+          "evidence_label": "Single recorded sighting",
+          "source_url": "https://www.inaturalist.org/taxa/4454"
+        },
+        {
+          "taxon_id": 4852,
+          "name": "Haematopus ater",
+          "common_name": "Blackish Oystercatcher",
+          "count": 1,
+          "rank": 9,
+          "distinct_dates": 1,
+          "years": [
+            2019
+          ],
+          "latest_sighting": "2019-10-22",
+          "evidence_label": "Single recorded sighting",
+          "source_url": "https://www.inaturalist.org/taxa/4852"
+        },
+        {
+          "taxon_id": 14883,
+          "name": "Mimus patagonicus",
+          "common_name": "Patagonian Mockingbird",
+          "count": 1,
+          "rank": 10,
+          "distinct_dates": 1,
+          "years": [
+            2026
+          ],
+          "latest_sighting": "2026-10-22",
+          "evidence_label": "Single recorded sighting",
+          "source_url": "https://www.inaturalist.org/taxa/14883"
+        }
+      ],
+      "warnings": [
+        "Recording frequency reflects observer activity as well as wildlife occurrence. Weather does not change this ranking."
+      ]
+    }
+  },
+  "limitations": [
+    "Live observations and environmental data can change; these are dated result snapshots rather than complete frozen source datasets.",
+    "Importance is descriptive: the spatial baseline criterion was not met.",
+    "Recording frequency is influenced by observer activity, and neither screenshot establishes encounter probability.",
+    "Map imagery is credited to OpenStreetMap contributors in the captured interface."
+  ]
+}
