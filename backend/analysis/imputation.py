@@ -4,11 +4,12 @@ import math
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from analysis.features import ENVIRONMENTS
+from analysis.requirements import MODEL_REQUIREMENTS, RF_REQUIREMENTS
 
 VERSION = 'proximity-1'
 PARAMETERS = {'iterations': 5, 'n_estimators': 200, 'max_depth': 8,
-              'min_samples_leaf': 3, 'seed': 42, 'min_donors': 15,
-              'max_missing_fraction': .5, 'max_records': 1000, 'max_restarts': 5}
+              'min_samples_leaf': 3, 'seed': 42, **RF_REQUIREMENTS,
+              'max_records': MODEL_REQUIREMENTS['max_records'], 'max_restarts': 5}
 
 
 class ImputationError(ValueError):
@@ -106,8 +107,8 @@ class ProximityImputer:
                 observed = original[np.isfinite(original[:, column]), column]
                 if (len(observed) < PARAMETERS['min_donors']
                         or 1 - len(observed) / len(current) > PARAMETERS['max_missing_fraction']
-                        or len(np.unique(observed)) < 2):
-                    raise ImputationError(f'Insufficient evidence: {key} needs 15 observed donors, two distinct values, and at most 50% missingness in training.', exclusions)
+                        or len(np.unique(observed)) < PARAMETERS['min_distinct_values']):
+                    raise ImputationError(f"Insufficient evidence: {key} needs {PARAMETERS['min_donors']} observed donors, {PARAMETERS['min_distinct_values']} distinct values, and at most {PARAMETERS['max_missing_fraction']*100:g}% missingness in training.", exclusions)
             self.medians = np.nanmedian(original, axis=0)
             filled, missing = self._initialize(original)
             unresolved = np.zeros(len(current), dtype=bool)

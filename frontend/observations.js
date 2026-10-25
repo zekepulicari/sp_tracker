@@ -2,6 +2,7 @@ import {safeUrl} from './state.js';
 
 const REQUEST_TIMEOUT = 12000;
 const CACHE_TTL = 3600000;
+const GRID_PANE = 'observations-grid';
 const contains = (outer, inner) => outer.nelat >= inner.nelat && outer.nelng >= inner.nelng && outer.swlat <= inner.swlat && outer.swlng <= inner.swlng;
 const within = (record, bounds) => {
     const [lng, lat] = record.geojson.coordinates;
@@ -26,6 +27,10 @@ export class ObservationMap {
     constructor(map, {panel, text, spinner, retry}) {
         this.map = map;
         this.ui = {panel, text, spinner, retry};
+        // Base-layer autoZIndex must never cover sightings; tools/markers stay above them.
+        const gridPane = map.getPane(GRID_PANE) || map.createPane(GRID_PANE);
+        gridPane.style.zIndex = '350';
+        gridPane.style.pointerEvents = 'none';
         this.markers = L.layerGroup();
         this.cache = [];
         this.photos = new Map();
@@ -79,7 +84,7 @@ export class ObservationMap {
         this.species = species;
         if (species) {
             this.grid = L.tileLayer(`https://api.inaturalist.org/v1/grid/{z}/{x}/{y}.png?taxon_id=${species.id}&color=%23e76f00`,
-                {opacity:.8, attribution:'© <a href="https://www.inaturalist.org">iNaturalist</a>'});
+                {pane:GRID_PANE, opacity:.8, attribution:'© <a href="https://www.inaturalist.org">iNaturalist</a>'});
             this.grid.on('tileerror', () => {
                 if (this.map.getZoom() <= 6) this.state('Some sightings tiles are unavailable. Try zooming in for observations.');
             });

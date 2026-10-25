@@ -11,6 +11,7 @@ from analysis.data_ingestion import environmental_days
 from analysis.probability_model import train_model, predict
 from main import AnalysisRequest
 from analysis import prediction as pipeline
+from analysis.requirements import analysis_requirements
 
 RING=[[0,0],[1,0],[1,1],[0,1],[0,0]]
 
@@ -103,4 +104,90 @@ def test_consecutive_methods_comparison_and_unavailable_evidence(monkeypatch, en
         fallback = run(pipeline.run_analysis(request(method), lambda _: None, ''))
         assert fallback['type'] == 'historical_profile' and fallback['profile'] and 'model' not in fallback
         assert 'Insufficient evidence' in fallback['summary'] and fallback['evidence']['excluded_records']
+        counts = fallback['evidence']['eligibility']['counts']
+        assert counts['aligned_sightings'] == 0 and counts['aligned_background'] == 31
+        assert counts['usable_total'] == (31 if method == 'glm' else None)
     pipeline.model_cache.clear()
+
+
+def test_failed_fits_preserve_counts_and_public_fitting_minimum():
+    minimum = analysis_requirements()['model']['min_records']
+    with pytest.raises(ValueError) as error:
+        train_model(model_records()[:minimum-1], 'terrestrial', 'glm')
+    assert error.value.eligibility['counts']['usable_total'] == minimum-1
+    assert error.value.validation is None
+    _, metadata = train_model(model_records()[:minimum], 'terrestrial', 'glm')
+    assert metadata['n_records'] == minimum
+    incomplete = model_records()[:minimum]
+    incomplete[0]['air_temp'] = float('nan')
+    with pytest.raises(ValueError, match='finite') as error:
+        train_model(incomplete, 'terrestrial', 'glm')
+    assert error.value.eligibility['counts']['usable_total'] is None
+    assert error.value.eligibility['counts']['aligned_sightings'] == minimum//2
+
+
+def test_spatial_and_date_limits_keep_other_available_metrics():
+    rows = model_records()[:150]
+    for row in rows: row.update(lat=.01, lng=.01)
+    _, metadata = train_model(rows, 'terrestrial', 'glm')
+    v = metadata['validation']
+    assert v['spatial'] is None and v['chronological']
+    assert v['diagnostics']['spatial']['n_groups'] == 1
+    assert v['diagnostics']['spatial']['sighting_groups'] == 1
+    assert v['diagnostics']['chronological']['n_dates'] == 75
+    assert 'Occupied cells: 1; need at least 4' in v['unavailable_reasons']['spatial']
+    assert isinstance(v['chronological']['model']['auc'], float)
+    rows = model_records()
+    for i, row in enumerate(rows): row['date'] = str(date(2023, 1, 1)+timedelta(days=i%9))
+    _, metadata = train_model(rows, 'terrestrial', 'glm')
+    assert metadata['validation']['spatial'] and metadata['validation']['chronological'] is None
+    assert 'Distinct dates: 9; need at least 10' in metadata['validation']['unavailable_reasons']['chronological']
+
+
+def test_many_cells_do_not_guarantee_a_class_balanced_spatial_split():
+    rows = model_records()
+    for row in rows:
+        if row['presence']: row.update(lat=.01, lng=.01)
+    _, metadata = train_model(rows, 'terrestrial', 'glm')
+    v = metadata['validation']
+    assert v['spatial'] is None and v['chronological']
+    assert v['diagnostics']['spatial']['n_groups'] >= 4
+    assert v['diagnostics']['spatial']['sighting_groups'] == 1
+    assert v['diagnostics']['spatial']['attempted_splits'] == 8
+    assert 'No eligible grouped split' in v['unavailable_reasons']['spatial']
+
+
+@pytest.mark.parametrize('spatial_pass', [False, True])
+def test_readable_baseline_verdict_preserves_individual_holdout_metrics(monkeypatch, spatial_pass):
+    from analysis import probability_model as models
+    values = iter([
+        {'auc': .8 if spatial_pass else .5079, 'balanced_accuracy': .8 if spatial_pass else .4632},
+        {'auc': .5289, 'balanced_accuracy': .4789},
+        {'auc': .8, 'balanced_accuracy': .8}, {'auc': .5, 'balanced_accuracy': .5}])
+    monkeypatch.setattr(models, 'metrics', lambda *_: next(values))
+    _, metadata = models.train_model(model_records(), 'terrestrial', 'glm')
+    v = metadata['validation']
+    assert v['spatial']['improves_baseline'] == spatial_pass
+    assert v['chronological']['improves_baseline'] and not v['experimental']
+    assert v['ranking_allowed'] == spatial_pass
+    assert v['spatial']['model']['auc'] == (.8 if spatial_pass else .5079)
+
+
+@pytest.mark.parametrize('text,allowed', [
+    ('The models are statistically indistinguishable.', False),
+    ('The difference is not statistically significant.', False),
+    ('There is no significant difference between the models.', False),
+    ('Chronological validation did not outperform the seasonal baseline.', True)])
+def test_ai_significance_claims_fall_back_to_authoritative_evidence(monkeypatch, text, allowed):
+    from types import SimpleNamespace
+    from google import genai
+    from analysis.interpretation import generate_interpretation
+    class Client:
+        def __init__(self, **kwargs):
+            self.models = SimpleNamespace(generate_content=lambda **kwargs: SimpleNamespace(text=text))
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+    monkeypatch.setattr(genai, 'Client', Client)
+    result = generate_interpretation('Synthetic animal', {}, 'Authoritative evidence.', 'dummy-key')
+    assert result['source'] == ('ai' if allowed else 'evidence')
+    assert result['text'] == (text if allowed else 'Authoritative evidence.')
