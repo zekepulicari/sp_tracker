@@ -16,7 +16,7 @@ Historical evidence returned instead of an environmental model is explicitly lab
 
 One generation token and abort controller belong to each run. Submission, status, result, and error handlers check that token before changing the UI or session task; terminal states clear polling timers and release busy controls. Refresh restores the original request snapshot and resumes polling. Personal-key reruns reuse the last submitted species request, with the current key passed separately in headers.
 
-The day-comparison action appears only for a completed Environmental Outlook matching the current species, environment, method, location, date, and sample size. It is hidden during processing, discovery, failures, and unrelated result types.
+The day-comparison action stays visible in species controls and requires a resolved species and an applied study location; it is disabled during work or when edited coordinates have not been applied. It submits a fresh current-input snapshot with `method=glm`, `operation=compare_days`, and today's target date, switching the visible method/date accordingly. No previous analysis is required. Cache keys still enforce matching species, extent, sample size, setting, and method, so it cannot reuse an unrelated previous model. It compares the upcoming forecast week; the visit date controls single-day analysis rather than moving that week. Missing evidence and unavailable rankings remain explicit result states.
 
 ## Requirements and diagnostics
 
@@ -34,6 +34,7 @@ Yellow outcome notices distinguish a stopped fit from limited independent valida
 
 - `POST /api/analysis/run`: resolved `species`, positive `taxon_id`, `environment` (`terrestrial`/`marine`), `target_lat`, `target_lng`, ISO `target_date`; optional `method` (`glm`/`rf`/`rustic`), `operation` (`single_day`/`compare_days`), `limit` (100–500), and `radius_km` (5–50).
 - `POST /api/discovery/run`: validated GeoJSON `polygon`, ISO `target_date`, optional `animal_group` (default `all`). No holes, self-intersections, antimeridian crossing, or more than 100 vertices.
+
 - Species requests may include an optional `X-Gemini-Key` header for a request-scoped AI summary override. Invalid formats are rejected before queueing without reflecting the key.
 - Both return `task_id`. Poll `GET /api/analysis/status/{task_id}`; fetch `GET /api/analysis/results/{task_id}` on completion.
 - Job states: queued, running, complete, failed, expired. Incomplete results return 202, expired results 410, missing jobs 404, and busy queues 429. Two jobs run concurrently, eight can wait, results remain for 24 hours; a one-hour expiry tombstone permits recovery messaging. Retained task count is bounded.
@@ -41,6 +42,8 @@ Yellow outcome notices distinguish a stopped fit from limited independent valida
 - `GET /api/observations/{id}` accepts a positive numeric ID and returns `{id, photos}` with at most the first available photo URL, contributor attribution, and license. The browser calls this only when opening a popup.
 - `POST /api/observations/within` returns exact polygon-filtered records from a disclosed 200-record sample for the requested species.
 - Interactive API schemas: `/docs`. Same-origin by default; additional CORS origins must be explicitly set in `ALLOWED_ORIGINS`.
+
+Discovery interprets `target_date` as the center of a seven-day seasonal window (±3 inclusive). Its seven month/day pairs are matched across the existing ten-year evidence period ending yesterday; this is not a recent-observations query. Separate month/day queries prevent cross-products at month/year boundaries and share the configured total record cap. Exact server filtering rechecks calendar dates and historical bounds. Cache keys include the window version and all seven calendar dates; failed/incomplete segments are never cached. Results add `seasonal_window` with full selected-year endpoints, the seven calendar dates, offsets, and version `centered-7-v1`. The legacy `month` field remains for compatibility but does not control ranking. February 29 matches only real historical leap dates; other years are not padded or shifted. Dates too close to the Python date limits are rejected before queueing. The frontend previews the inclusive range, restores it with saved tasks, and labels older monthly results explicitly. Selected-day weather remains separate from the ranking.
 
 Map responses and photo metadata are cached for one hour in a bounded 256-entry cache. Identical in-flight requests share upstream work. A complete cached extent can cover a contained viewport; capped samples cannot. The frontend keeps up to 20 map extents and 100 popup responses for one hour. Map calls have a 10-second total server deadline, including waiting and retries, returning 504 on timeout; upstream failures return 503. The frontend enforces a 12-second request timeout and offers Retry. Neither failure is cached. Browser movement cancels obsolete requests; generation checks reject late responses. Popup auto-pans do not reload the map. Loading feedback is separate from map-tool instructions.
 

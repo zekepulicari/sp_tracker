@@ -28,6 +28,12 @@ async def observations_fixture(url,params=None):
                     'preferred_common_name':f'Synthetic animal {i%12+1}','rank':'species','ancestor_ids':[1], 'iconic_taxon_name':'Mammalia'}})
         if params.get('id') is not None:
             rows = [row for row in rows if row['id'] == int(params['id'])]
+        if params.get('month') is not None:
+            months = set(map(int,str(params['month']).split(',')))
+            rows = [row for row in rows if int(row['observed_on'][5:7]) in months]
+        if params.get('day') is not None:
+            days = set(map(int,str(params['day']).split(',')))
+            rows = [row for row in rows if int(row['observed_on'][8:10]) in days]
         return {'total_results':len(rows),'results':rows}
     raise ValueError('Unexpected external request in offline acceptance mode.')
 

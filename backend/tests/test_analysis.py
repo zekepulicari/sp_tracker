@@ -6,10 +6,12 @@ import numpy as np
 import pytest
 from analysis.features import ENVIRONMENTS
 from analysis.geo import validate_polygon
-from analysis.discovery import rank_observations
+from analysis.discovery import rank_observations, centered_dates
+from analysis import discovery
+from upstream import UpstreamError
 from analysis.data_ingestion import environmental_days
 from analysis.probability_model import train_model, predict
-from main import AnalysisRequest
+from main import AnalysisRequest, DiscoveryRequest
 from analysis import prediction as pipeline
 from analysis.requirements import analysis_requirements
 
@@ -57,10 +59,72 @@ def obs(id,taxon=10,day='2024-10-01',coords=None,rank='species'):
 def test_ranking_exact_boundary_filters_and_ties():
     rows=[obs(1,20),obs(2,10),obs(3,20,'2023-10-01'),obs(4,10,'2023-10-02'),obs(5,30,coords=[0,0]),obs(6,40,coords=[2,2]),obs(7,50,'2024-09-01')]
     rows += [rows[0],{**obs(8,60),'captive':True},{**obs(9,70),'taxon':{'id':70,'rank':'genus'}}]
-    animals,count=run(rank_observations(rows,validate_polygon([RING]),10))
+    animals,count=run(rank_observations(rows,validate_polygon([RING]),date(2026,10,1)))
     assert [s['taxon_id'] for s in animals]==[10,20,30]
     assert count==5 and animals[2]['evidence_label']=='Single recorded sighting'
     assert animals[0]['years']==[2023,2024]
+
+
+@pytest.mark.parametrize('center,first,last', [
+    ('2026-10-20','10-17','10-23'), ('2026-11-01','10-29','11-04'),
+    ('2026-01-01','12-29','01-04'), ('2024-02-29','02-26','03-03'),
+    ('2025-03-01','02-26','03-04')])
+def test_centered_discovery_includes_boundaries_but_not_other_calendar_dates(center, first, last):
+    target = date.fromisoformat(center)
+    days = centered_dates(target)
+    assert len(days) == 7 and days[3] == target
+    assert days[0].isoformat()[5:] == first and days[-1].isoformat()[5:] == last
+    rows = [obs(1, day='2024-'+first), obs(2, day='2024-'+last), obs(3, day='2024-'+center[5:]),
+            obs(4, day='2024-'+(days[0]-timedelta(days=1)).isoformat()[5:]),
+            obs(5, day='2024-'+(days[-1]+timedelta(days=1)).isoformat()[5:]),
+            obs(6, day='2010-'+first), obs(7, day='2030-'+last)]
+    if center == '2025-03-01': rows.append(obs(8, day='2024-02-29'))
+    species,count = run(rank_observations(rows, validate_polygon([RING]), target,
+        historical_bounds=(date(2016,1,1),date(2025,12,31))))
+    assert count == 3 and species[0]['count'] == 3
+
+
+def test_discovery_queries_pair_months_and_days_and_share_only_matching_week_cache(monkeypatch):
+    discovery.history_cache.clear()
+    monkeypatch.setattr(discovery, 'evidence_window', lambda: (date(2016,1,1),date(2025,12,31)))
+    monkeypatch.setattr(discovery, 'DISCOVERY_CAP', 4)
+    async def fetch(params, cap, **kwargs):
+        assert kwargs['require_complete']
+        if params['month'] == 12:
+            return [obs(1,day='2024-12-29'),obs(2,day='2024-12-31')],2,True
+        return [obs(3,day='2024-01-01'),obs(4,day='2024-01-04')],2,True
+    get = AsyncMock(side_effect=fetch)
+    monkeypatch.setattr(discovery, 'fetch_observations', get)
+    def request(day):
+        return DiscoveryRequest(polygon={'type':'Polygon','coordinates':[RING]},target_date=day)
+    result = run(discovery.run_discovery(request('2027-01-01'), lambda _:None))
+    assert result['records_inside'] == 4 and result['bbox_records'] == 4 and result['complete']
+    assert result['seasonal_window']['start'] == '2026-12-29' and result['seasonal_window']['end'] == '2027-01-04'
+    calls = get.call_args_list
+    assert [(c.args[0]['month'],c.args[0]['day'],c.args[1]) for c in calls] == [(12,'29,30,31',4),(1,'1,2,3,4',2)]
+    assert not result['weather']['available']
+    repeated = run(discovery.run_discovery(request('2028-01-01'), lambda _:None))
+    assert get.await_count == 2 and repeated['seasonal_window']['start'] == '2027-12-29'
+    next_day = run(discovery.run_discovery(request('2027-01-02'), lambda _:None))
+    assert get.await_count == 4 and next_day['records_inside'] == 3
+    discovery.history_cache.clear()
+
+
+def test_discovery_never_caches_partial_or_over_cap_combined_windows(monkeypatch):
+    monkeypatch.setattr(discovery, 'DISCOVERY_CAP', 3)
+    request = DiscoveryRequest(polygon={'type':'Polygon','coordinates':[RING]},target_date='2027-01-01')
+    for failure in ('pagination','incomplete','cap'):
+        discovery.history_cache.clear()
+        async def fetch(params, cap, **kwargs):
+            if params['month'] == 12:
+                return [obs(1,day='2024-12-29'),obs(2,day='2024-12-31')],2,True
+            assert cap == 1
+            if failure == 'pagination': raise UpstreamError('Interrupted pagination.')
+            return [obs(3,day='2024-01-01')],2 if failure == 'cap' else 1,failure != 'incomplete'
+        monkeypatch.setattr(discovery, 'fetch_observations', fetch)
+        with pytest.raises(UpstreamError):
+            run(discovery.run_discovery(request, lambda _:None))
+        assert not discovery.history_cache
 
 
 @pytest.mark.parametrize('environment', ['terrestrial', 'marine'])
