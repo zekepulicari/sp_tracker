@@ -8,13 +8,17 @@ It is a focused portfolio project combining geographic analysis, public data ing
 
 ![Species Tracker: wildlife map and species analysis controls](docs/screenshots/desktop.jpg)
 
-*Current desktop interface. The orange grid shows recorded observations; it is not an animal-density or encounter-probability map.*
+*Desktop interface. The orange grid shows recorded observations; it is not an animal-density or encounter-probability map.*
 
 > Results describe historical recording frequency and relative modeled conditions. They are **not calibrated probabilities of seeing an animal**.
 
+Expand a section below for details.
+
 [Run locally](#run-locally) · [How the analyses work](#how-the-analyses-work) · [Examples](#examples) · [Evidence and limitations](#evidence-and-limitations) · [Development](#development) · [Sources and credits](#sources-and-credits)
 
-## What can I do with it?
+<a id="what-can-i-do-with-it"></a>
+<details>
+<summary><strong>What can I do with it?</strong></summary>
 
 | Your question | App workflow | What you get |
 | --- | --- | --- |
@@ -26,7 +30,11 @@ Search by common or scientific name, select an explicit Terrestrial or Marine se
 
 The map uses overview tiles when zoomed out and a capped sample of individual observations when zoomed in. Loading and updating indicators explain what is happening; previous points or the grid remain visible while a new view loads. Photos load when you open a point, with contributor credits and license information. Slow or failed requests offer Retry.
 
-## Run locally
+</details>
+
+<a id="run-locally"></a>
+<details>
+<summary><strong>Run locally</strong></summary>
 
 Open a terminal in the **project root**, the folder containing this README. Choose either Python or Docker; both serve the app at **[http://127.0.0.1:8000/](http://127.0.0.1:8000/)** and use the same port.
 
@@ -102,7 +110,11 @@ A personal key stays only in the page's memory and is cleared on refresh or when
 | The page still looks old | Reload with **Ctrl+F5** to refresh cached frontend assets. |
 | Sightings/weather are unavailable | Check the result's source error. External maintenance and request limits can prevent an analysis; a missing result does not mean animals are absent. |
 
-## How the analyses work
+</details>
+
+<a id="how-the-analyses-work"></a>
+<details>
+<summary><strong>How the analyses work</strong></summary>
 
 Two methods summarize observations. Two fit statistical models. The day comparison reuses an existing model rather than introducing another one.
 
@@ -157,9 +169,9 @@ Imputation is fitted separately inside each validation split. Held-out records u
 
 The result distinguishes complete, imputed, and excluded records. This method describes historical associations; it does not forecast your selected day's encounter.
 
-![Synthetic marine Random Forest example showing imputation counts and variable importance](docs/screenshots/random-forest.jpg)
+![Live Random Forest result for Otaria flavescens near Península Valdés, with variable importance and validation limitations](docs/screenshots/random-forest.jpg)
 
-*Offline acceptance example: 205 complete records and 35 retained through imputation. These are artificial test records, not evidence about a real species.*
+*Live capture, 2026-10-25: Otaria flavescens, Terrestrial, near Península Valdés, Argentina. The model retained 170 sightings and 170 backgrounds, with no imputation. Spatial validation did not meet the baseline rule, so these bars describe historical associations without establishing predictive skill. Sightings: iNaturalist; environmental data: Open-Meteo; map: © OpenStreetMap contributors.*
 
 <details>
 <summary>Model settings and imputation safeguards</summary>
@@ -183,9 +195,9 @@ It filters the polygon exactly, includes boundary points, combines subspecies un
 
 This is not ten environmental models. If fewer species have evidence, fewer than ten appear. Queries exceeding the configurable 5,000-record bounding-box cap—or interrupted pagination—fail explicitly rather than showing an incomplete ranking as complete.
 
-![Synthetic discovery example showing a polygon and seasonal species evidence](docs/screenshots/discovery.jpg)
+![Live Animals Nearby result near Península Valdés, showing the centered seven-day window and recorded species](docs/screenshots/discovery.jpg)
 
-*Offline acceptance example from the earlier interface; current discovery uses the selected date ±3 days. The polygon, species names, and sightings are test fixtures; they demonstrate the workflow rather than a real animal distribution.*
+*Live iNaturalist capture, 2026-10-25, near Puerto Pirámides, Península Valdés, Argentina. The 27.855 km² polygon contains 35 eligible historical sightings for 17–23 October. The ranking begins with Southern Right Whale (7) and South American Sea Lion (6). Recording frequency reflects observer activity as well as wildlife occurrence. Map: © OpenStreetMap contributors.*
 
 ### When should I go?: compare supported days
 
@@ -219,7 +231,11 @@ Both include month sine/cosine features, keeping December adjacent to January. E
 
 For an environmental assessment or day ranking, each holdout must have higher AUC than the seasonal baseline and balanced accuracy at least as high. If either holdout cannot be evaluated, the result is marked experimental. These are classifier diagnostics on single holdouts, not field-visit success rates or statistical significance tests.
 
-## Examples
+</details>
+
+<a id="examples"></a>
+<details>
+<summary><strong>Examples</strong></summary>
 
 Try these public study locations after starting the app. Select the resolved autocomplete result, choose the setting, enter the coordinates, and use today's date. Start with Historical Profile to inspect recorded evidence, then try Environmental Outlook or Key Factors.
 
@@ -230,7 +246,9 @@ Try these public study locations after starting the app. Select the resolved aut
 
 Use a sample cap of 100 for the walkthrough. The study radius starts at 5 km and can expand to 50 km. A result reporting insufficient evidence or withholding a ranking is a valid outcome.
 
-**Live validation status:** the saved 2026-10-16 walkthrough attempts were blocked by iNaturalist maintenance. They contain no real ecological validation scores. Successful screenshots and masked-data experiments are explicitly synthetic where applicable; do not interpret them as validated orca or puma predictions.
+**Live screenshots:** the Random Forest and Animals Nearby images above were captured on 2026-10-25 using live public data near Península Valdés. The Random Forest example uses *Otaria flavescens*, Terrestrial, coordinates `-42.58579972530433, -64.3080837731745`, a 5 km initial radius, and a cap of 500. For discovery, draw a coastal area near that point and select `2026-10-20`. See the [capture evidence](docs/examples/readme-live-captures.json) for the exact polygon, counts, source timestamps, and diagnostics. Live data can change; these are descriptive examples, not validated encounter forecasts.
+
+The older 2026-10-16 orca/puma walkthrough attempts were blocked by iNaturalist maintenance and remain historical records. Masked-data experiments and the acceptance server below use explicitly synthetic data.
 
 For reproducible demonstrations without sightings/weather API calls:
 
@@ -242,7 +260,11 @@ Open **[http://127.0.0.1:8002/fixture](http://127.0.0.1:8002/fixture)**. Search 
 
 See [portfolio walkthroughs](docs/portfolio-cases.md) for live/synthetic reproduction commands and [validation evidence](docs/validation.md) for the masked-data comparison against median filling. The saved synthetic experiment had lower reconstruction error with proximity imputation; this does not guarantee improvement on real or differently missing data.
 
-## Evidence and limitations
+</details>
+
+<a id="evidence-and-limitations"></a>
+<details>
+<summary><strong>Evidence and limitations</strong></summary>
 
 - Observations come from iNaturalist: research-grade, georeferenced, non-captive records for analysis/discovery. Recording frequency reflects observer effort, accessibility, and identification as well as wildlife occurrence.
 - Species analyses use a capped local sample: 200 sightings by default, adjustable from 100 to 500. Historical monthly counts may therefore be incomplete. The zoomed-in map is also a disclosed capped sample, not a complete survey.
@@ -253,7 +275,11 @@ See [portfolio walkthroughs](docs/portfolio-cases.md) for live/synthetic reprodu
 
 The project stays focused on wildlife visit planning: no accounts, tracking telemetry, or additional biodiversity-platform integrations are required for these workflows.
 
-## Development
+</details>
+
+<a id="development"></a>
+<details>
+<summary><strong>Development</strong></summary>
 
 **Python 3.12 · FastAPI · Leaflet · scikit-learn · Shapely/PyProj · optional Google Gen AI SDK**
 
@@ -266,7 +292,11 @@ The maintained suite is intentionally limited to **three test files**: API valid
 - [Validation evidence](docs/validation.md): test runs, source limitations, and measured imputation results.
 - [Pinned Python dependencies](backend/requirements-lock.txt) and [GitLab CI](.gitlab-ci.yml).
 
-## Sources and credits
+</details>
+
+<a id="sources-and-credits"></a>
+<details>
+<summary><strong>Sources and credits</strong></summary>
 
 Species Tracker builds on the work of data contributors, designers, and open-source maintainers. The original image credits and resource links are preserved below, including assets and references retained from earlier versions. Third-party material remains subject to its own license; these acknowledgments do not relicense it.
 
@@ -301,7 +331,7 @@ Observation photographs belong to their contributors. The interface retains supp
 
 Open-Meteo API data are offered under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); API access is also subject to separate [service terms](https://open-meteo.com/en/terms). Preserve data and map credits when sharing results or screenshots.
 
-The [desktop](docs/screenshots/desktop.jpg), [discovery](docs/screenshots/discovery.jpg), and [Random Forest](docs/screenshots/random-forest.jpg) images above capture Species Tracker's interface. The latter two use explicitly labeled synthetic fixture evidence. Map imagery remains third-party material, and the screenshots retain visible map credits.
+The [desktop](docs/screenshots/desktop.jpg), [discovery](docs/screenshots/discovery.jpg), and [Random Forest](docs/screenshots/random-forest.jpg) images above capture Species Tracker's interface. Discovery and Random Forest use live iNaturalist results captured on 2026-10-25; the Random Forest also uses Open-Meteo environmental data. Their captions and [capture evidence](docs/examples/readme-live-captures.json) record provenance and limitations. Map imagery remains third-party material, and the screenshots retain visible map credits. No observation photographs are reproduced in these screenshots.
 
 ### Software and statistical references
 
@@ -329,3 +359,5 @@ These links acknowledge resources used or considered during development. They ar
 | [Movebank API documentation](https://github.com/movebank/movebank-api-doc/blob/master/movebank-api.md) | Previously considered future data source; no Movebank integration is included. |
 
 The in-app Resources tab provides additional links to current tools and documentation. Acknowledgment of a source does not imply its endorsement of Species Tracker.
+
+</details>

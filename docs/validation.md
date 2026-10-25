@@ -1,3 +1,15 @@
+# README live screenshots and collapsible sections · 2026-10-25
+
+Replaced the synthetic Random Forest and Animals Nearby screenshots with unmodified captures of the production application using live public data near Puerto Pirámides, Península Valdés. The terrestrial Otaria flavescens Random Forest retained 170 sightings and 170 backgrounds without imputation; its visible warning preserves the spatial-validation limitation. Discovery used October 17–23 across the ten-year evidence period, with 35 eligible observations inside the drawn 27.855 km² polygon; Southern Right Whale (7) and South American Sea Lion (6) lead the ranking. Exact requests, polygon, source timestamps, counts, and diagnostics are saved in `docs/examples/readme-live-captures.json`.
+
+Both 1280 × 720 screenshots retain visible OpenStreetMap attribution and reproduce no observation photographs. Captions and source credits distinguish these live examples from the retained synthetic acceptance tools and older maintenance snapshots. All existing external source and icon-credit URLs remain present. The introduction remains visible, and all seven main sections below it use closed, keyboard-accessible details controls with stable navigation anchors.
+
+Documentation checks cover balanced nested details, seven collapsed main sections, local links, preserved external credits, and evidence metadata. Screenshot framing and attribution were inspected visually. Application code and the same three maintained test files are unchanged; backend tests and Docker were not rerun for this documentation-only change.
+
+GitHub's rendered branch preview confirmed seven closed main sections, working setup navigation and rendered code blocks, and both live images loaded at 1280 × 720. Keyboard Enter opened and closed Sources and credits, exposing all six original Flaticon creator links. All sections were returned to their collapsed state after verification.
+
+---
+
 # Centered discovery week and direct day comparison · 2026-10-25
 
 Animals Nearby now matches seven calendar dates centered on the selected date (three before, that date, three after) across the existing ten-year historical evidence period. Date previews and results disclose both endpoints. Separate month/day requests handle month/year crossings under one shared cap; exact server filtering rechecks dates and polygon membership. Window-versioned cache keys prevent monthly or neighboring-window reuse. Old saved monthly results are explicitly identified. Weather remains separate context for the selected central date.
