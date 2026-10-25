@@ -1,3 +1,13 @@
+# Observation overlay order · 2026-10-24
+
+Loaded iNaturalist grid tiles were hidden by Esri World Imagery: the base-layer control assigned the satellite layer z-index 2 while sightings used 1 in the same tile pane. Observations now use a dedicated, non-interactive Leaflet pane at z-index 350, above base maps and below tools, vector markers, and popups. Every species grid uses that pane, and frontend asset versions were updated.
+
+Browser verification passed without refreshing between interactions: Otaria and Orcinus grid sightings remained visible when switching between Light map and Satellite, including species selection before and after changing the base map. Zooming into Otaria showed the capped 100-point sample; an observation popup opened above the satellite map. Point selection, polygon drawing/clearing, and zooming back to grid tiles also passed. DOM inspection confirmed a single grid pane with z-index 350 and pointer events disabled.
+
+All six frontend modules passed Node.js syntax checks; git diff --check passed. The same three maintained test files remain unchanged. Backend tests and Docker were not rerun for this presentation-only change; queries, caches, statistical rules, credentials, and attribution were not changed. The user's untracked screenshots were left untouched.
+
+---
+
 # Consecutive analysis results · 2026-10-24
 
 **21 backend cases passed across exactly three maintained test files.** All six frontend modules passed Node.js syntax checks. The existing Starlette TestClient deprecation warning remains. No endpoints, dependencies, or statistical policies changed; Docker was not rerun.

@@ -1,6 +1,6 @@
 import {Selection, label, localDate} from './state.js';
 import {MapTools} from './tools.js';
-import {ObservationMap} from './observations.js?v=2.3';
+import {ObservationMap} from './observations.js?v=2.5';
 import {setupAnalysis} from './analysis.js?v=2.4';
 import {setupApiSettings} from './settings.js?v=2.2';
 
