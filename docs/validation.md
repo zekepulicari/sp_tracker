@@ -1,3 +1,19 @@
+# Available results and evidence warnings · 2026-10-25
+
+Investigated the user's open Otaria flavescens run (taxon 41761, Terrestrial, study point -42.58579972530433 / -64.3080837731745, 5 km radius, cap 500, target date 2026-10-25). All three methods completed using live iNaturalist/Open-Meteo evidence. These are dated local snapshots, not guaranteed reproduction of a changing upstream dataset.
+
+| Method | Evidence/result | Independent validation |
+| --- | --- | --- |
+| Historical Profile | Monthly counts from 170 sightings, 2017-02-06 through 2026-10-10 | No environmental model requested |
+| Key Factors | 170 usable sightings + 170 backgrounds; no exclusions or imputation. Temperature 39.1%, wind 31.9%, cyclic seasonality about 10.2% and 10.1%, rainfall 8.8% | Spatial AUC 0.4895 vs baseline 0.4163, balanced accuracy 0.4757 vs 0.5000: baseline rule not met. Chronological AUC 0.6897 vs 0.6431, balanced accuracy 0.6237 vs 0.5624: passed. Descriptive importance remains available. |
+| Environmental Outlook | Same 340 complete records; selected-day forecast available and inside the training range | Spatial AUC 0.4380 vs 0.4163, balanced accuracy 0.5059 vs 0.5000: passed. Chronological AUC 0.4982 vs 0.6431, balanced accuracy 0.5699 vs 0.5624: baseline rule not met. Conditions are displayed; favorability is withheld. |
+
+The apparent missing Key Factors result was a presentation problem: importance followed several long diagnostic cards, and the generic validation warning discussed unavailable favorability even for this descriptive method. Main importance/condition results now appear first. Yellow notices distinguish stopped fitting, limited validation, and missing forecasts; the checklist explains which counts are minimums. Key Factors is labeled advanced. Evidence explanation has a decorative sparkle SVG and a source badge that does not describe deterministic text as AI-generated. No analytical thresholds or eligibility rules were changed.
+
+The same **32 backend cases across three maintained test files** passed. Seven JavaScript syntax checks, Python compilation, and Git whitespace checks passed. Temporary local rendering checks replayed the saved live results and covered primary-result order, source badges, missing forecasts, safe text, and insufficient-fit notices. Browser checks verified live importance, precise baseline explanations, task restoration during a fresh run, and a visibly yellow insufficient-evidence notice at 390 px width without horizontal overflow. Controlled unavailable examples are explicitly synthetic. No dependencies or container configuration changed; Docker was not rerun. User screenshots were untouched.
+
+---
+
 # Analysis requirements and validation diagnostics · 2026-10-25
 
 **32 backend cases passed across exactly three maintained test files.** All seven frontend modules passed Node.js syntax checks; Python compilation and Git whitespace checks passed. The existing Starlette TestClient deprecation warning remains. Model/cache version is 2.2.1. Dependencies, container configuration, analytical thresholds, sampling, and imputation policies are unchanged; Docker was not rerun.

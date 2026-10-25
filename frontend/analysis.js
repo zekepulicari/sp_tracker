@@ -1,5 +1,5 @@
 import {escapeHtml as e, safeUrl, readStorage, writeStorage} from './state.js';
-import {requirementsHtml, evidenceHtml, validationHtml} from './diagnostics.js?v=2.6';
+import {requirementsHtml, outcomeHtml, evidenceHtml, validationHtml} from './diagnostics.js?v=2.7';
 const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const labels = {air_temp:'Air temperature',wind_speed:'Wind speed',precipitation:'Rainfall',sst:'Sea surface temperature',wave_height:'Wave height',ocean_current_velocity:'Ocean current',season_sin:'Season (sine)',season_cos:'Season (cosine)'};
 const units = {air_temp:'°C',wind_speed:'km/h',precipitation:'mm/day',sst:'°C',wave_height:'m',ocean_current_velocity:'km/h'};
@@ -54,9 +54,7 @@ export function resultHtml(result, run=null, requirements=null) {
         html += `<details class="card"><summary>Source timestamp and query completeness</summary><pre>${e(JSON.stringify({fetched_at:result.fetched_at,bbox_records:result.bbox_records,complete:result.complete,month:result.month,animal_group:result.animal_group},null,2))}</pre></details>`;
         return html;
     }
-    html += evidenceHtml(result, run, requirements) + validationHtml(result, run);
-    if (result.warnings?.length) html += `<section class="card"><h3>Limitations</h3>${result.warnings.map(w=>`<p class="notice">${e(w)}</p>`).join('')}</section>`;
-    if (result.interpretation) html += `<section class="card"><h3>Evidence explanation</h3><p style="white-space:pre-line">${e(result.interpretation.text)}</p><p class="help">${e(result.interpretation.notice)}</p></section>`;
+    html += outcomeHtml(result, run);
     if (result.model?.variable_importance && Object.keys(result.model.variable_importance).length) {
         if (result.model.imputation?.imputed_records) html += `<p class="notice">These importance bars depend partly on estimated environmental values. See imputation details in technical evidence; estimated values are not observed measurements.</p>`;
         const entries = Object.entries(result.model.variable_importance).sort((a,b)=>b[1]-a[1]);
@@ -67,6 +65,9 @@ export function resultHtml(result, run=null, requirements=null) {
         const days = [...result.days].sort((a,b)=>(a.rank || 999)-(b.rank || 999) || a.date.localeCompare(b.date));
         for (const day of days) html += `<section class="card"><h3>${day.rank ? `#${e(day.rank)} · ` : ''}${e(day.date)}</h3><span class="tag">Forecast · daily UTC measures</span><table>${conditionRows(day.conditions)}</table>${!day.available ? `<p class="notice">${e(day.reason)}</p>` : ''}${day.extrapolated_variables?.length ? `<p class="notice">Outside training range: ${e(day.extrapolated_variables.map(k=>labels[k] || k).join(', '))}. This day is not ranked.</p>` : ''}</section>`;
     }
+    html += evidenceHtml(result, run, requirements) + validationHtml(result, run);
+    if (result.warnings?.length) html += `<section class="card"><h3>Limitations</h3>${result.warnings.map(w=>`<p class="notice">${e(w)}</p>`).join('')}</section>`;
+    if (result.interpretation) html += `<section class="card"><h3 class="explanation-heading"><svg class="explanation-sparkles" viewBox="0 0 28 28" fill="currentColor" aria-hidden="true" focusable="false"><path d="m12 2 2.8 7.2L22 12l-7.2 2.8L12 22l-2.8-7.2L2 12l7.2-2.8ZM23 17l1.4 3.6L28 22l-3.6 1.4L23 27l-1.4-3.6L18 22l3.6-1.4ZM23 1l.8 2.2L26 4l-2.2.8L23 7l-.8-2.2L20 4l2.2-.8Z"/></svg>Evidence explanation</h3><span class="tag">${result.interpretation.source === 'ai' ? 'AI summary' : 'Deterministic evidence summary'}</span><p style="white-space:pre-line">${e(result.interpretation.text)}</p><p class="help">${e(result.interpretation.notice)}</p></section>`;
     if (result.profile) html += profileHtml(result.profile, limited);
     html += `<details class="card"><summary>Technical evidence, validation, and relative scores</summary><p class="help">Classifier scores distinguish sightings from background samples. They are not encounter probabilities.</p><pre>${e(JSON.stringify({model:result.model,features:result.features,evidence:result.evidence,days:result.days?.map(d=>({date:d.date,relative_score:d.relative_score,available:d.available}))},null,2))}</pre></details>`;
     return html;

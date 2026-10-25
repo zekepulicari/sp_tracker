@@ -106,19 +106,21 @@ A personal key stays only in the page's memory and is cleared on refresh or when
 
 Two methods summarize observations. Two fit statistical models. The day comparison reuses an existing model rather than introducing another one.
 
-**Historical Profile is the default.** The menu then offers Key Factors and Environmental Outlook (advanced). The selected method explains its data policy and fitting/validation requirements before you run it. These requirements come from the server; this is not a separate availability check.
+**Historical Profile is the default.** The menu then offers Key Factors (advanced) and Environmental Outlook (advanced). The selected method explains its data policy and fitting/validation requirements before you run it. These requirements come from the server; this is not a separate availability check.
 
 You can run the methods consecutively without refreshing. Each request replaces the previous result with a named progress panel and retains its submitted species, environment, and date. If an environmental method cannot be produced, the result explicitly says **Environmental Outlook unavailable** or **Key Factors unavailable**, explains the data limits, and labels any monthly chart as supporting historical evidence.
 
 | Method | Main purpose | Fits an environmental model? |
 | --- | --- | --- |
 | Historical Profile | Explore when sightings were recorded. | No |
-| Key Factors | Examine which predictors help distinguish sighting/background conditions. | Yes—Random Forest |
+| Key Factors (advanced) | Examine which predictors help distinguish sighting/background conditions. | Yes—Random Forest |
 | Environmental Outlook (advanced) | Compare forecast conditions with local sighting/background conditions. | Yes—logistic regression |
 | Animals Nearby | Find the most recorded species in an area during a season. | No |
 | When should I go? | Compare eligible upcoming days. | Reuses the logistic model |
 
 The result's **Evidence checklist** shows retrieved sightings, generated comparison backgrounds, usable counts, total usable records, and grouped exclusions beside the fitting minimums. Sightings are recorded observations; backgrounds are generated locations/dates, not confirmed absences. Unknown final retention is labeled **Not evaluated**, including when imputation stops early.
+
+Only the usable sighting/background/total counts have fitting minimums. Retrieved and excluded counts are accounting information. Meeting the minimums is necessary for fitting, but environmental eligibility must also pass. A yellow notice distinguishes **insufficient usable evidence** (no model fitted) from **limited predictive validation** (a model fitted, but predictive use is unsupported). Key Factors still shows descriptive importance in the latter case. Importance bars and forecast conditions appear before diagnostic tables so the available result is easy to find. The Evidence explanation has a sparkle icon and explicitly identifies an AI summary or a deterministic evidence summary.
 
 Fitted models have separate **Spatial validation** and **Chronological validation** cards. They show three-decimal AUC and balanced accuracy for the environmental model and seasonality-only baseline, training/test counts, actual spatial-cell/date coverage, and specific reasons when a holdout cannot run. The verdict uses the recorded metric precision. An available holdout stays visible even when the other is unavailable. Missing metrics are not replaced with zeros, and meeting count minimums does not guarantee independent validation or a favorable forecast. No significance test is performed; unsupported AI significance claims fall back to the deterministic explanation.
 

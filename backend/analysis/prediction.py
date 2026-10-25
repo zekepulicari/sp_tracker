@@ -105,7 +105,10 @@ async def training(request, progress):
         unavailable = [name for name in ('spatial', 'chronological') if not metadata['validation'][name]]
         result['warnings'].append('Experimental: independent validation unavailable for ' + ', '.join(unavailable) + '.')
     if not metadata['validation']['ranking_allowed']:
-        result['warnings'].append('Validation has not demonstrated improvement over the seasonal baseline in both holdouts; favorability assessments and day rankings are withheld.')
+        result['warnings'].append(
+            'Validation has not demonstrated improvement over the seasonal baseline in both holdouts; feature importance remains available as descriptive associations, without established predictive skill.'
+            if request.method == 'rf' else
+            'Validation has not demonstrated improvement over the seasonal baseline in both holdouts; favorability assessments and day rankings are withheld.')
     return model, result
 
 

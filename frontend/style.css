@@ -32,6 +32,10 @@ nav button[aria-current=page] { background:var(--green); color:white; }
 .method-info details { margin:8px 0; }
 .method-info summary { cursor:pointer; font-weight:650; }
 .validation-card td { font-variant-numeric:tabular-nums; }
+.card.analysis-warning { background:#fff1c2; color:#493b0b; border:1px solid #e2c05a; border-left:5px solid #b98500; }
+.analysis-warning h3 { color:inherit; }
+.explanation-heading { display:flex; align-items:center; gap:8px; }
+.explanation-sparkles { width:24px; height:24px; flex-shrink:0; color:#e4c276; }
 @keyframes observation-spin { to { transform:rotate(360deg); } }
 @media(prefers-reduced-motion:reduce) { .observation-spinner,.analysis-loading h2::before { animation:none; } }
 aside { overflow:auto; background:var(--forest); color:var(--paper); padding:24px; }
