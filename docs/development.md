@@ -28,6 +28,8 @@ Results add `evidence.eligibility`, containing the requirement snapshot, process
 
 Validation verdicts are deterministic. The AI evidence distinguishes unavailable holdouts from evaluated baseline failures, and the prompt forbids significance inference. AI text containing significance-inference language is conservatively rejected in favor of the deterministic summary; rejection does not imply a credential error.
 
+Yellow outcome notices distinguish a stopped fit from limited independent validation or missing forecasts. Main importance/condition results precede the checklist and validation cards. Random Forest validation warnings explicitly preserve descriptive importance; failed holdouts never suppress its bars. Both environmental models are labeled advanced in the menu. A decorative local SVG marks Evidence explanation, whose source badge distinguishes AI from deterministic text.
+
 ## API
 
 - `POST /api/analysis/run`: resolved `species`, positive `taxon_id`, `environment` (`terrestrial`/`marine`), `target_lat`, `target_lng`, ISO `target_date`; optional `method` (`glm`/`rf`/`rustic`), `operation` (`single_day`/`compare_days`), `limit` (100–500), and `radius_km` (5–50).
