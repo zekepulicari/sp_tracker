@@ -6,6 +6,8 @@ Both 1280 × 720 screenshots retain visible OpenStreetMap attribution and reprod
 
 Documentation checks cover balanced nested details, seven collapsed main sections, local links, preserved external credits, and evidence metadata. Screenshot framing and attribution were inspected visually. Application code and the same three maintained test files are unchanged; backend tests and Docker were not rerun for this documentation-only change.
 
+GitHub's rendered branch preview confirmed seven closed main sections, working setup navigation and rendered code blocks, and both live images loaded at 1280 × 720. Keyboard Enter opened and closed Sources and credits, exposing all six original Flaticon creator links. All sections were returned to their collapsed state after verification.
+
 ---
 
 # Centered discovery week and direct day comparison · 2026-10-25
