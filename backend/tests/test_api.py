@@ -6,9 +6,18 @@ import pytest
 from fastapi.testclient import TestClient
 from main import app
 from map_observations import map_cache, map_observations, close_map_requests
+from analysis.requirements import analysis_requirements
+from config import MODEL_VERSION
 
 PAYLOAD={'species':'Puma concolor','taxon_id':42007,'environment':'terrestrial','target_lat':0,'target_lng':0,'target_date':'2026-10-16'}
 RING=[[0,0],[1,0],[1,1],[0,1],[0,0]]
+
+
+def test_public_requirements_match_enforced_analysis_configuration():
+    with TestClient(app) as client:
+        config = client.get('/api/config').json()
+    assert config['analysis_requirements'] == analysis_requirements()
+    assert config['model_version'] == MODEL_VERSION
 
 @pytest.mark.parametrize('change',[{'taxon_id':0},{'target_lat':91},{'environment':'unknown'}])
 def test_invalid_analysis_rejected_before_queue(change):

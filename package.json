@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "npm run check",
-    "check": "node --check frontend/app.js && node --check frontend/analysis.js && node --check frontend/tools.js && node --check frontend/state.js && node --check frontend/settings.js && node --check frontend/observations.js"
+    "check": "node --check frontend/app.js && node --check frontend/analysis.js && node --check frontend/tools.js && node --check frontend/state.js && node --check frontend/settings.js && node --check frontend/observations.js && node --check frontend/diagnostics.js"
   },
   "engines": {
     "node": ">=20"

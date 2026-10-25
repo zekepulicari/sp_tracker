@@ -18,6 +18,16 @@ One generation token and abort controller belong to each run. Submission, status
 
 The day-comparison action appears only for a completed Environmental Outlook matching the current species, environment, method, location, date, and sample size. It is hidden during processing, discovery, failures, and unrelated result types.
 
+## Requirements and diagnostics
+
+`analysis/requirements.py` defines the unchanged model, split, spatial-cell, chronological-date, and RF donor requirements. `GET /api/config` exposes them as `analysis_requirements`; the method guide and Documentation thresholds render from this configuration. Historical Profile is first and selected on fresh visits; restored tasks retain their requested method. No eligibility endpoint or pre-check workflow is added.
+
+Results add `evidence.eligibility`, containing the requirement snapshot, processing stage, aligned/final usable counts, occupied and sighting-containing cells, and distinct dates. Uncalculated counts remain null. RF alignment counts remain known when final imputation retention is unknown. Existing evidence and metric fields remain compatible. On a failed fit, measured diagnostics survive on the exception and are copied into the result; any already-computed holdout diagnostics remain in `evidence.validation`.
+
+`model.validation.diagnostics` records actual grouping/date coverage and candidate split counts; `unavailable_reasons` now covers insufficient cells/dates, invalid class/sample splits, and failed split fits. Existing evaluated holdout metrics and baseline criteria are unchanged. The frontend renders separate cards before the optional AI explanation, retaining the raw technical JSON. Missing diagnostics in older results are labeled as unrecorded rather than fabricated. Model/cache version 2.2.1 distinguishes these metadata additions.
+
+Validation verdicts are deterministic. The AI evidence distinguishes unavailable holdouts from evaluated baseline failures, and the prompt forbids significance inference. AI text containing significance-inference language is conservatively rejected in favor of the deterministic summary; rejection does not imply a credential error.
+
 ## API
 
 - `POST /api/analysis/run`: resolved `species`, positive `taxon_id`, `environment` (`terrestrial`/`marine`), `target_lat`, `target_lng`, ISO `target_date`; optional `method` (`glm`/`rf`/`rustic`), `operation` (`single_day`/`compare_days`), `limit` (100–500), and `radius_km` (5–50).
@@ -61,6 +71,7 @@ node --check frontend/tools.js
 node --check frontend/state.js
 node --check frontend/settings.js
 node --check frontend/observations.js
+node --check frontend/diagnostics.js
 docker compose config --quiet
 docker build -t species-tracker:check .
 ```

@@ -1,4 +1,5 @@
 import {escapeHtml as e, safeUrl, readStorage, writeStorage} from './state.js';
+import {requirementsHtml, evidenceHtml, validationHtml} from './diagnostics.js?v=2.6';
 const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const labels = {air_temp:'Air temperature',wind_speed:'Wind speed',precipitation:'Rainfall',sst:'Sea surface temperature',wave_height:'Wave height',ocean_current_velocity:'Ocean current',season_sin:'Season (sine)',season_cos:'Season (cosine)'};
 const units = {air_temp:'°C',wind_speed:'km/h',precipitation:'mm/day',sst:'°C',wave_height:'m',ocean_current_velocity:'km/h'};
@@ -38,16 +39,12 @@ function profileHtml(profile, supporting=false) {
     const max = Math.max(1,...profile.map(row=>row.count));
     return `<section class="card"><h2>${supporting ? 'Supporting historical sightings by month' : 'Historical sightings by month'}</h2><p class="help">Counts describe the retrieved sample, not successful visits.</p><table><caption>Recorded sightings and years represented</caption><thead><tr><th>Month</th><th>Sightings</th><th>Years</th></tr></thead><tbody>${profile.map(row=>`<tr><th scope="row">${e(months[row.month-1])}</th><td>${e(row.count)}<span class="bar" aria-hidden="true" style="width:${Math.max(1,row.count/max*100)}%"></span></td><td>${e(row.years.join(', ') || '—')}</td></tr>`).join('')}</tbody></table></section>`;
 }
-export function resultHtml(result, run=null) {
+export function resultHtml(result, run=null, requirements=null) {
     const limited = unavailable(result, run);
-    const heading = run ? `${runName(run)}${limited ? ' unavailable' : ''}` : result.title || result.species?.name || 'Analysis evidence';
+    const conditionsOnly = !limited && run?.payload.method === 'glm' && run.payload.operation !== 'compare_days' && result.model?.validation?.ranking_allowed === false;
+    const heading = run ? `${runName(run)}${limited ? ' unavailable' : conditionsOnly ? ' · conditions only' : ''}` : result.title || result.species?.name || 'Analysis evidence';
     const fallbackNotice = run?.payload.operation === 'compare_days' ? 'The requested day ranking is unavailable. Supporting evidence is shown below.' : 'The requested analysis could not be produced. Historical sightings below are supporting evidence, not its result.';
-    let html = `<section class="card${limited ? ' unavailable-result' : ''}"><h2>${e(heading)}</h2>${contextHtml(run)}<p>${e(result.summary)}</p>${limited ? `<p class="notice">${fallbackNotice}</p>` : ''}${(result.warnings || []).map(w=>`<p class="notice">${e(w)}</p>`).join('')}</section>`;
-    if (limited && result.evidence) {
-        const evidence = result.evidence, reasons = new Map();
-        for (const row of evidence.excluded_records || []) reasons.set(row.reason || 'Reason not supplied', (reasons.get(row.reason || 'Reason not supplied') || 0) + 1);
-        html += `<section class="card"><h3>Environmental evidence limits</h3><p>${e(evidence.usable_sightings ?? 'Not available')} usable sightings · ${e(evidence.usable_background ?? 'Not available')} usable background samples</p>${reasons.size ? `<p>Excluded records:</p><ul>${[...reasons].sort((a,b)=>b[1]-a[1]).map(([reason,count])=>`<li>${e(count)}: ${e(reason)}</li>`).join('')}</ul>` : '<p class="help">See the explanation above and technical evidence for data availability.</p>'}</section>`;
-    }
+    let html = `<section class="card${limited ? ' unavailable-result' : ''}"><h2>${e(heading)}</h2>${contextHtml(run)}<p>${e(result.summary)}</p>${limited ? `<p class="notice">${fallbackNotice}</p>` : ''}</section>`;
     if (result.type === 'seasonal_discovery') {
         html += `<section class="card"><h2>${e(result.title || 'Most recorded animals here in this season')}</h2><h3>Area and evidence</h3><p>${e(result.area_km2)} km² · ${e(result.records_inside)} eligible sightings inside the boundary</p><p class="help">${e(result.evidence_window.start)} to ${e(result.evidence_window.end)} · ${e(months[result.month-1])} in each year · complete query</p></section>`;
         for (const animal of result.species) {
@@ -57,11 +54,9 @@ export function resultHtml(result, run=null) {
         html += `<details class="card"><summary>Source timestamp and query completeness</summary><pre>${e(JSON.stringify({fetched_at:result.fetched_at,bbox_records:result.bbox_records,complete:result.complete,month:result.month,animal_group:result.animal_group},null,2))}</pre></details>`;
         return html;
     }
+    html += evidenceHtml(result, run, requirements) + validationHtml(result, run);
+    if (result.warnings?.length) html += `<section class="card"><h3>Limitations</h3>${result.warnings.map(w=>`<p class="notice">${e(w)}</p>`).join('')}</section>`;
     if (result.interpretation) html += `<section class="card"><h3>Evidence explanation</h3><p style="white-space:pre-line">${e(result.interpretation.text)}</p><p class="help">${e(result.interpretation.notice)}</p></section>`;
-    if (result.evidence) {
-        const v = result.evidence;
-        html += `<section class="card"><h3>Evidence used</h3><p>${e(v.sightings)} recorded sightings · ${e(v.radius_km)} km study radius</p><p class="help">${e(v.date_start || 'No dates')} to ${e(v.date_end || 'No dates')}<br>${e(v.background_samples)} generated background samples${v.usable_sightings !== undefined ? `<br>${e(v.usable_sightings)} usable sightings · ${e(v.usable_background)} usable background samples` : ''}${v.imputed_records !== undefined ? `<br>${e(v.complete_records)} complete records · ${e(v.imputed_records)} retained through proximity imputation<br>${e(v.observed_cells)} observed environmental values · ${e(v.imputed_cells)} estimated values` : ''}<br>${e(v.excluded_records.length)} records excluded; reasons are listed in technical evidence.</p></section>`;
-    }
     if (result.model?.variable_importance && Object.keys(result.model.variable_importance).length) {
         if (result.model.imputation?.imputed_records) html += `<p class="notice">These importance bars depend partly on estimated environmental values. See imputation details in technical evidence; estimated values are not observed measurements.</p>`;
         const entries = Object.entries(result.model.variable_importance).sort((a,b)=>b[1]-a[1]);
@@ -83,6 +78,19 @@ export function setupAnalysis(context) {
     let session;
     try { session = window.sessionStorage; } catch { session = null; }
     let active = false, generation = 0, currentRun = null, lastRun = null, completed = null;
+    let requirements = null;
+    function methodHelp() { $('analysis-method-info').innerHTML = requirementsHtml($('analysis-method').value, requirements); }
+    $('analysis-method').addEventListener('change', methodHelp);
+    methodHelp();
+    fetch('/api/config').then(response => { if (!response.ok) throw Error('Configuration unavailable'); return response.json(); })
+        .then(config => {
+            requirements = config.analysis_requirements || null; methodHelp();
+            for (const node of document.querySelectorAll?.('[data-requirement]') || []) {
+                const value = node.dataset.requirement.split('.').reduce((obj,key)=>obj?.[key], requirements);
+                node.textContent = typeof value === 'number' ? String(node.dataset.percent ? value*100 : value) : '—';
+            }
+        })
+        .catch(() => methodHelp());
     let pollTimer = null, controller = null;
     const buttons = ['btn-run-analysis','btn-discover','btn-compare-days'];
     const isCurrent = token => active && token === generation;
@@ -146,7 +154,7 @@ export function setupAnalysis(context) {
         $(id).addEventListener('change', inputsChanged);
     }
     function display(result, run) {
-        results.innerHTML = resultHtml(result, run);
+        results.innerHTML = resultHtml(result, run, requirements);
         completed = {run, result};
         for (const button of results.querySelectorAll('.analyze-animal')) button.addEventListener('click',()=>{
             const animal = result.species.find(row=>String(row.taxon_id)===button.dataset.taxon);
@@ -176,7 +184,7 @@ export function setupAnalysis(context) {
                 if (!isCurrent(token)) return;
                 if (!response.ok) throw Error(typeof result.detail === 'string' ? result.detail : 'Results unavailable.');
                 display(result, run); finish(); inputsChanged();
-                progress.textContent = `${runName(run)} ${unavailable(result, run) ? 'unavailable; supporting evidence is shown.' : 'ready.'}`;
+                progress.textContent = `${runName(run)} ${unavailable(result, run) ? 'unavailable; supporting evidence is shown.' : run.payload.method === 'glm' && result.model?.validation?.ranking_allowed === false ? 'ready; conditions only. Favorability assessment unavailable.' : 'ready.'}`;
             } else if (data.status === 'failed' || data.status === 'expired') {
                 fail(data.error || 'Task expired. Run it again.', run, token);
             } else if (data.status === 'queued' || data.status === 'running') {
@@ -251,6 +259,7 @@ export function setupAnalysis(context) {
             poll(saved.id,begin(run,true),run);
         } catch { fail('The previous task could not be restored. Run it again.'); }
     }
+    methodHelp();
     return {
         isBusy: () => active,
         inputsChanged,

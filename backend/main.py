@@ -17,6 +17,7 @@ from analysis.prediction import run_analysis as analyze
 from analysis.discovery import run_discovery, GROUPS
 from upstream import gateway, UpstreamError
 from map_observations import map_observations, map_photo, close_map_requests
+from analysis.requirements import analysis_requirements
 
 @asynccontextmanager
 async def lifespan(app):
@@ -89,7 +90,8 @@ def health_check():
 @app.get('/api/config')
 def configuration():
     return {'DEFAULT_ZOOM_THRESHOLD': DEFAULT_ZOOM_THRESHOLD, 'model_version': MODEL_VERSION,
-            'animal_groups': list(GROUPS), 'sample_default': 200, 'sample_max': 500}
+            'animal_groups': list(GROUPS), 'sample_default': 200, 'sample_max': 500,
+            'analysis_requirements': analysis_requirements()}
 
 @app.get('/api/species/search')
 async def species_search(q: str = Query(min_length=0, max_length=200)):

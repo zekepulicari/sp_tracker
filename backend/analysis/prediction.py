@@ -6,7 +6,7 @@ from cachetools import TTLCache
 from analysis.data_ingestion import local_occurrences, align_history, environmental_days, timestamp
 from analysis.features import definitions, ENVIRONMENTS
 from analysis.geo import background_samples
-from analysis.probability_model import train_model, predict
+from analysis.probability_model import train_model, predict, evidence_eligibility
 from analysis.interpretation import generate_interpretation
 from config import MODEL_VERSION
 
@@ -37,6 +37,7 @@ def base_result(request, records, radius, completeness):
             'location': {'lat': request.target_lat, 'lng': request.target_lng},
             'profile': historical_profile(records), 'features': definitions(request.environment),
             'evidence': {'sightings': len(records), 'background_samples': 0, 'excluded_records': [],
+                         'eligibility': evidence_eligibility(),
                          'date_start': dates[0] if dates else None, 'date_end': dates[-1] if dates else None,
                          'radius_km': radius, 'record_ids': [r['id'] for r in records],
                          'source_records': [{'id': r['id'], 'date': r['date']} for r in records],
@@ -69,18 +70,23 @@ async def training(request, progress):
         'usable_sightings': sum(p['presence'] == 1 for p in aligned),
         'usable_background': sum(p['presence'] == 0 for p in aligned),
         'training_records': [{'id': p['id'], 'date': p['date']} for p in aligned]})
+    result['evidence']['eligibility'] = evidence_eligibility(aligned, 'aligned', final=request.method != 'rf')
     progress('Validating spatial and chronological holdouts against the seasonal baseline…')
     try:
         model, metadata = await asyncio.to_thread(train_model, aligned, request.environment, request.method)
     except ValueError as exc:
+        result['evidence']['eligibility'] = getattr(exc, 'eligibility', result['evidence']['eligibility'])
+        if getattr(exc, 'validation', None) is not None:
+            result['evidence']['validation'] = exc.validation
         if request.method == 'rf':
             result['evidence']['excluded_records'].extend(getattr(exc, 'exclusions', []))
             for key in ('usable_sightings', 'usable_background', 'training_records'):
                 result['evidence'].pop(key, None)
         result['summary'] = str(exc)
-        result['warnings'].append('Environmental outlook unavailable; the historical profile remains available.')
+        result['warnings'].append('Environmental model unavailable; the historical profile remains available.')
         return None, result
     result['model'] = metadata
+    result['evidence']['eligibility'] = metadata['eligibility']
     if request.method == 'rf':
         imputation = metadata['imputation']
         retained = metadata['training_records']
@@ -96,7 +102,8 @@ async def training(request, progress):
                 f"{imputation['imputed_records']} records. Proximity imputation does not eliminate missingness bias.")
     result['type'] = 'environmental_outlook'
     if metadata['validation']['experimental']:
-        result['warnings'].append('Experimental: both independent holdouts could not be evaluated.')
+        unavailable = [name for name in ('spatial', 'chronological') if not metadata['validation'][name]]
+        result['warnings'].append('Experimental: independent validation unavailable for ' + ', '.join(unavailable) + '.')
     if not metadata['validation']['ranking_allowed']:
         result['warnings'].append('Validation has not demonstrated improvement over the seasonal baseline in both holdouts; favorability assessments and day rankings are withheld.')
     return model, result
@@ -183,7 +190,7 @@ async def run_analysis(request, progress, api_key=None):
         # Imputation diagnostics contain per-record provenance; keep those out of AI requests.
         ai_model = {k: metadata[k] for k in ('model_type', 'features', 'variable_importance', 'n_records')}
         validation = metadata['validation']
-        ai_model['validation'] = {k: validation[k] for k in ('experimental', 'ranking_allowed')}
+        ai_model['validation'] = {k: validation[k] for k in ('experimental', 'ranking_allowed', 'unavailable_reasons')}
         for split in ('spatial', 'chronological'):
             item = validation[split]
             ai_model['validation'][split] = ({k: v for k, v in item.items() if k != 'imputation'} if item else None)

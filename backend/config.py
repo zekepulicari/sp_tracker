@@ -12,4 +12,4 @@ GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.1-flash-lite')
 ALLOWED_ORIGINS = [s.strip() for s in os.getenv('ALLOWED_ORIGINS', '').split(',') if s.strip()]
 DISCOVERY_CAP = int(os.getenv('DISCOVERY_CAP', '5000'))
 UPSTREAM_DAILY_BUDGET = int(os.getenv('UPSTREAM_DAILY_BUDGET', '6000'))
-MODEL_VERSION = '2.2.0'
+MODEL_VERSION = '2.2.1'

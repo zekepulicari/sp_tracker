@@ -27,6 +27,11 @@ nav button[aria-current=page] { background:var(--green); color:white; }
 .analysis-loading h2 { display:flex; align-items:center; gap:10px; }
 .analysis-loading h2::before { content:''; flex-shrink:0; width:18px; height:18px; border:2px solid var(--sage); border-top-color:var(--paper); border-radius:50%; animation:observation-spin .8s linear infinite; }
 .card.unavailable-result { border-left:4px solid #e4c276; }
+.method-info { font-size:12px; border:1px solid #70816a; border-radius:7px; padding:9px 12px; margin:12px 0; }
+.method-info p { margin:6px 0; }
+.method-info details { margin:8px 0; }
+.method-info summary { cursor:pointer; font-weight:650; }
+.validation-card td { font-variant-numeric:tabular-nums; }
 @keyframes observation-spin { to { transform:rotate(360deg); } }
 @media(prefers-reduced-motion:reduce) { .observation-spinner,.analysis-loading h2::before { animation:none; } }
 aside { overflow:auto; background:var(--forest); color:var(--paper); padding:24px; }

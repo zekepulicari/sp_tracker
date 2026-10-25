@@ -6,9 +6,23 @@ import pytest
 from analysis.features import ENVIRONMENTS, SEASONAL, seasonality
 from analysis.imputation import ProximityImputer, weighted_update
 from test_analysis import model_records
+from analysis.probability_model import train_model
 
 def frame(environment='terrestrial', size=100):
     return pd.DataFrame([{**r, **seasonality(int(r['date'][5:7]))} for r in model_records(environment)[:size]])
+
+
+def test_failed_imputation_retains_alignment_counts_without_inventing_final_retention():
+    rows = model_records()
+    for row in rows[20:]: row['wind_speed'] = None
+    with pytest.raises(ValueError, match='observed donors') as error:
+        train_model(rows, 'terrestrial', 'rf')
+    diagnostic = error.value.eligibility
+    assert diagnostic['stage'] == 'imputation_failed'
+    assert diagnostic['counts']['aligned_sightings'] == 120
+    assert diagnostic['counts']['aligned_background'] == 120
+    assert diagnostic['counts']['usable_total'] is None
+    assert error.value.validation['unavailable_reasons']['spatial']
 
 
 def test_weighted_mean_uses_only_original_observations_and_reports_zero_support():
